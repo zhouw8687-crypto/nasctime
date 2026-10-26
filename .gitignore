@@ -53,3 +53,7 @@ Thumbs.db
 # ---- 明确要保留的例外（防止上面规则误伤）----
 !experiments/specs/*.json
 !experiments/docs/schema/*.json
+
+# ---- 导出/传输用（不入库）----
+exports/
+*.bundle
