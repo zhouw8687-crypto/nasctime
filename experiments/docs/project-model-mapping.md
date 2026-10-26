@@ -205,7 +205,7 @@
 | ① | 99.99% 有两种含义 | 包级送达率 99.99% 与年可用性 99.99% 差 4 个数量级 | 报告中每个 99.99% 都必须标明是"包级"还是"时间可用性"，且给出样本量 |
 | ② | 5 µs 与 100 µs 不同层 | 单设备抖动 5 µs 不能推出场景抖动 100 µs（还有排队、调度、跨跳累积） | 分开表述；不要用 5 µs 去"证明"100 µs |
 | ③ | 4 ms 单向是否可达 | 你们自己的数据：理想信道 CLC `mean 3.23 / p99 6.74`；论文基线 `2.58 / 3.12` | **必须用论文基线口径对标**，不能用 FRER 三配置平均值；且写明是 p50 还是 p99 |
-| ④ | "微秒级"调度是否可达 | 复核源码：`LteMacBase.h` 的 `ttiPeriod_` 默认取 `#define TTI 0.001`，但 `LteMacEnb.cc:173` / `LteMacUe.cc:158` 在 `INITSTAGE_SIMU5G_TTI_SETUP` 用 `binder->getSlotDurationFromNumerologyIndex(cellInfo->getMaxNumerologyIndex())` **按 numerology 覆盖**；`Binder.h:229` 给出 slot = 2^-idx/1000 s（idx0=1ms、idx1=0.5ms、idx2=0.25ms、idx3=0.125ms、idx4=62.5µs）。**结论：微秒级可达，但必须把 `ComponentCarrier.numerologyIndex` 配到 3/4**；当前 `frer_test` 未设该参数，实际跑的是 1ms。 | 在 ini 显式配 `numerologyIndex` 并在 `.sca` 里确认 ttiPeriod 生效；改 TTI 会改变 PHY slot 与 HARQ 时序，必须重新基线 |
+| ④ | "微秒级"调度是否可达 | **已实测（EXP-01）**：`componentCarrier[0].numerologyIndex=1` → gNB `NrMacGnb` 与 15 个 `NrMacUe` 的 TTI = **0.5 ms**；`=3` → **0.125 ms**（`Binder.h:229` 的 slot=2^-idx/1000 s 成立）。另有 15 个遗留 `LteMacUeD2D` 恒为 1 ms，但事件数≈tick 数，不在数据面。注意：`ex_multi_omnetpp.ini` 本来就设了 `numerologyIndex=1`，**既有 FRER 结果跑在 0.5 ms，不是 1 ms**。详见 `docs/exp-01-numerology-tti.md`。 | 换 TTI 会改变 PHY slot 与 HARQ 时序，**必须重新基线**；报告里要写清是 slot 级而非符号级 |
 | ⑤ | 带宽损耗 ≤10% 的分母 | 是"业务有效带宽"还是"链路总带宽"？含不含 PTP 报文与 FRER 副本？ | 固定为 `(同步报文 + 冗余副本 + 门控开销) / 业务有效带宽`，并在 KPI 文件中写死 |
 | ⑥ | 10 s 优化时间 vs 慢环 | 10 s 是端到端资源优化时间，包含观测+计算+下发+生效 | CP-2 周期应 ≤2 s，留 5 倍余量；否则一次重算就吃掉指标 |
 | ⑦ | 2 Mbps 与 XR 高带宽 | 2 Mbps 是"确定性转发"的带宽下限，XR 单流可达数十 Mbps | 不要混在同一行指标里；分别声称 |
