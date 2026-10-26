@@ -1,0 +1,27 @@
+nohup: 忽略输入
+bash: /media/a100/data/zbw/conda-envs/nasctime/lib/libtinfo.so.6: no version information available (required by bash)
+[1/12] FrerBaseline_N15 run16 开始 13:44:32
+[1/12] FrerBaseline_N15 run16 OK   13:45:40
+[2/12] FrerBaseline_N15 run17 开始 13:45:40
+[2/12] FrerBaseline_N15 run17 FAILED(已标记) 13:46:31
+[3/12] FrerBaseline_N15 run18 开始 13:46:31
+[3/12] FrerBaseline_N15 run18 OK   13:47:40
+[4/12] FrerBaseline_N15 run19 开始 13:47:40
+[4/12] FrerBaseline_N15 run19 OK   13:48:48
+[5/12] FrerAsym_N15 run16 开始 13:48:48
+[5/12] FrerAsym_N15 run16 FAILED(已标记) 13:49:47
+[6/12] FrerAsym_N15 run17 开始 13:49:47
+[6/12] FrerAsym_N15 run17 FAILED(已标记) 13:50:45
+[7/12] FrerAsym_N15 run18 开始 13:50:45
+[7/12] FrerAsym_N15 run18 OK   13:52:01
+[8/12] FrerAsym_N15 run19 开始 13:52:01
+[8/12] FrerAsym_N15 run19 FAILED(已标记) 13:52:59
+[9/12] FrerSym_N15 run16 开始 13:52:59
+[9/12] FrerSym_N15 run16 FAILED(已标记) 13:53:57
+[10/12] FrerSym_N15 run17 开始 13:53:57
+[10/12] FrerSym_N15 run17 FAILED(已标记) 13:54:54
+[11/12] FrerSym_N15 run18 开始 13:54:54
+[11/12] FrerSym_N15 run18 OK   13:56:09
+[12/12] FrerSym_N15 run19 开始 13:56:09
+[12/12] FrerSym_N15 run19 FAILED(已标记) 13:57:07
+ALL DONE: 完成5 失败7 跳过0 (共12)

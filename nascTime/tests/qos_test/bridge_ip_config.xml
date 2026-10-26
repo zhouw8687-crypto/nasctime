@@ -1,0 +1,30 @@
+<config>
+
+  <!-- TSN domain A -->
+  <interface hosts="tsnDeviceA" address="10.0.0.x" netmask="255.255.255.0"/>
+  <interface hosts="tsnSwitch" address="10.0.0.x" netmask="255.255.255.0"/>
+  <interface hosts="nwTt" names="ethIf" address="10.0.0.x" netmask="255.255.255.0"/>
+
+  <!-- NW-TT to UPF -->
+  <interface hosts="nwTt" names="pppIf" address="10.0.1.x" netmask="255.255.255.0"/>
+  <interface hosts="upf" names="pppIf" address="10.0.1.x" netmask="255.255.255.0"/>
+
+  <!-- UPF to gNB -->
+  <interface hosts="upf" names="ppp0" address="10.0.2.x" netmask="255.255.255.0"/>
+  <interface hosts="gnb" names="pppIf" address="10.0.2.x" netmask="255.255.255.0"/>
+
+  <!-- Cellular -->
+  <interface hosts="gnb" names="cellular" address="10.0.3.x" netmask="255.255.255.0"/>
+  <interface hosts="ue[*]" names="cellular" address="10.0.3.x" netmask="255.255.255.0"/>
+
+  <!-- UE eth0 to TSN Device B (DS-TT is L2 transparent) -->
+  <interface hosts="ue[*]" names="eth0" address="192.168.1.1" netmask="255.255.255.0"/>
+  <interface hosts="tsnDeviceB" names="eth0" address="192.168.1.2" netmask="255.255.255.0"/>
+
+  <!-- DS-TT is L2 only, no IP -->
+  <interface hosts="dsTt" address="0.0.0.0" netmask="0.0.0.0"/>
+
+  <!-- Catch-all for loopbacks etc -->
+  <interface hosts="**" address="10.0.x.x" netmask="255.255.255.0"/>
+
+</config>

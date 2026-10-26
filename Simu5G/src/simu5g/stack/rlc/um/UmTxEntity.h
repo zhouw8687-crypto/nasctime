@@ -1,0 +1,200 @@
+//
+//                  Simu5G
+//
+// Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
+//
+// This file is part of a software released under the license included in file
+// "license.pdf". Please read LICENSE and README files before using it.
+// The above files and the present reference are part of the software itself,
+// and cannot be removed from it.
+//
+
+#ifndef _LTE_UMTXENTITY_H_
+#define _LTE_UMTXENTITY_H_
+
+#include "simu5g/common/LteDefs.h"
+#include "simu5g/stack/rlc/RlcTxEntityBase.h"
+#include "simu5g/stack/rlc/LteRlcDefs.h"
+#include "simu5g/mec/utils/MecCommon.h"
+
+namespace simu5g {
+
+class D2DModeController;
+
+using namespace omnetpp;
+
+/**
+ * @class UmTxEntity
+ * @brief Transmission entity for UM
+ *
+ * This module is used to segment and/or concatenate RLC SDUs
+ * in UM mode at RLC layer of the LTE stack. It operates in
+ * the following way:
+ *
+ * - When an RLC SDU is received from the upper layer:
+ *    a) the RLC SDU is buffered;
+ *    b) the arrival of new data is notified to the lower layer.
+ *
+ * - When the lower layer requests an RLC PDU, this module invokes
+ *   the rlcPduMake() function that builds a new SDU by segmenting
+ *   and/or concatenating original SDUs stored in the buffer.
+ *   Additional information is added to the SDU in order to allow
+ *   the receiving RLC entity to rebuild the original SDUs.
+ *
+ * - The newly created SDU is encapsulated into an RLC PDU and sent
+ *   to the lower layer.
+ *
+ * The size of PDUs is signaled by the lower layer.
+ */
+class UmTxEntity : public RlcTxEntityBase
+{
+    static simsignal_t rlcPduCreatedSignal_;
+    struct FragmentInfo {
+        inet::Packet *pkt = nullptr;
+        int size = 0;
+    };
+
+    FragmentInfo *fragmentInfo = nullptr;
+
+  public:
+
+    ~UmTxEntity() override
+    {
+        delete fragmentInfo;
+    }
+
+    /**
+     * handleSdu() is the main entry point for SDUs from the upper layer.
+     * It adds the PDCP tracking tag, then enqueues/holds/drops the packet
+     * and sends a new-data indication to MAC on successful enqueue.
+     */
+    void handleSdu(inet::Packet *pkt);
+
+    /*
+     * Enqueues an upper layer packet into the SDU buffer
+     * @param pkt the packet to be enqueued
+     *
+     * @return TRUE if the packet was enqueued in the SDU buffer
+     */
+    bool enque(cPacket *pkt);
+
+    /**
+     * handleMacSduRequest() handles a MAC SDU request packet.
+     * Extracts the requested size and calls rlcPduMake().
+     */
+    void handleMacSduRequest(inet::Packet *pkt);
+
+    /**
+     * rlcPduMake() creates a PDU having the specified size
+     * and sends it to the lower layer
+     *
+     * @param size of a PDU
+     */
+    void rlcPduMake(int pduSize);
+
+    // force the sequence number to assume the sno passed as an argument
+    void setNextSequenceNumber(unsigned int nextSno) { sno_ = nextSno; }
+
+    // drop fragments if the queue is full.
+    void dropBufferOverflow(cPacket *pkt);
+
+    // remove the last SDU from the queue
+    void removeDataFromQueue();
+
+    // clear the TX buffer
+    void clearQueue();
+
+    // set holdingDownstreamInPackets_
+    void startHoldingDownstreamInPackets() { holdingDownstreamInPackets_ = true; }
+
+    // return true if the entity is not buffering in the TX queue
+    bool isHoldingDownstreamInPackets();
+
+    // store the packet in the holding buffer
+    void enqueHoldingPackets(inet::cPacket *pkt);
+
+    // resume sending packets downstream
+    void resumeDownstreamInPackets();
+
+    // return the value of notifyEmptyBuffer_
+    bool isEmptyingBuffer() { return notifyEmptyBuffer_; }
+
+    // returns true if this entity is for a D2D_MULTI connection
+    bool isD2DMultiConnection() { return flowControlInfo_->getDirection() == D2D_MULTI; }
+
+    // called when a D2D mode switch is triggered
+    void rlcHandleD2DModeSwitch(bool oldConnection, bool clearBuffer = true);
+
+  protected:
+
+    // D2D mode switch controller (nullptr when D2D is not enabled)
+    D2DModeController *d2dModeController_ = nullptr;
+
+    /*
+     * @author Alessandro Noferi
+     *
+     * reference to packetFlowObserver in order to be able
+     * to count discarded packets and packet delay
+     *
+     * Be sure to control every time if it is null, this module
+     * is not mandatory for a correct network simulation.
+     * It is useful, e.g., for RNI service within MEC
+     */
+    RlcBurstStatus burstStatus_;
+
+    /*
+     * The SDU enqueue buffer.
+     */
+    inet::cPacketQueue sduQueue_;
+
+    /*
+     * Determine whether the first item in the queue is a fragment or a whole SDU
+     */
+    bool firstIsFragment_ = false;
+
+    /*
+     * If true, the entity checks when the queue becomes empty
+     */
+    bool notifyEmptyBuffer_ = false;
+
+    /*
+     * If true, the entity temporarily stores incoming SDUs in the holding queue (useful at D2D mode switching)
+     */
+    bool holdingDownstreamInPackets_ = false;
+
+    /*
+     * The SDU holding buffer.
+     */
+    inet::cPacketQueue sduHoldingQueue_;
+
+    /*
+     * The maximum available queue size (in bytes)
+     * (amount of data in sduQueue_ must not exceed this value)
+     */
+    unsigned int queueSize_;
+
+    /*
+     * The currently stored amount of data in the SDU queue (in bytes)
+     */
+    unsigned int queueLength_ = 0;
+
+    /**
+     * Initialize fragmentSize and
+     * watches
+     */
+    void initialize(int stage) override;
+    void handleMessage(cMessage *msg) override;
+
+  private:
+
+    // Node id of the owner module
+    MacNodeId ownerNodeId_;
+
+    /// Next PDU sequence number to be assigned
+    unsigned int sno_ = 0;
+};
+
+} //namespace
+
+#endif

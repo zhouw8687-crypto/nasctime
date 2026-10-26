@@ -1,0 +1,9 @@
+nohup: 忽略输入
+===== FrerBaseline_N15 (10s x 20 runs) =====
+
+End.
+===== FrerAsym_N15 (10s x 20 runs) =====
+FAILED: FrerAsym_N15 (see /media/a100/data/zbw/nasctime/experiments/log_FrerAsym_N15.log)
+===== FrerSym_N15 (10s x 20 runs) =====
+FAILED: FrerSym_N15 (see /media/a100/data/zbw/nasctime/experiments/log_FrerSym_N15.log)
+ALL DONE

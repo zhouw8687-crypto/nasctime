@@ -1,0 +1,84 @@
+//
+//                  Simu5G
+//
+// Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
+//
+// This file is part of a software released under the license included in file
+// "license.pdf". Please read LICENSE and README files before using it.
+// The above files and the present reference are part of the software itself,
+// and cannot be removed from it.
+//
+
+#ifndef _LTE_VOIPRECEIVER_H_
+#define _LTE_VOIPRECEIVER_H_
+
+#include <list>
+#include <string.h>
+
+#include <inet/networklayer/common/L3AddressResolver.h>
+#include <inet/transportlayer/contract/udp/UdpSocket.h>
+
+#include "simu5g/common/LteDefs.h"
+#include "simu5g/apps/voip/VoipPacket_m.h"
+
+namespace simu5g {
+
+using namespace omnetpp;
+
+class VoipReceiver : public cSimpleModule, public inet::UdpSocket::ICallback
+{
+    inet::UdpSocket socket;
+
+    ~VoipReceiver() override;
+
+    int emodel_Ie_;
+    int emodel_Bpl_;
+    int emodel_A_;
+    double emodel_Ro_;
+
+    typedef std::list<VoipPacket *> PacketsList;
+    PacketsList mPacketsList_;
+    PacketsList mPlayoutQueue_;
+    unsigned int mCurrentTalkspurt_;
+    unsigned int mBufferSpace_;
+    simtime_t mSamplingDelta_;
+    simtime_t mPlayoutDelay_;
+
+    bool mInit_ = true;
+
+    unsigned int totalRcvdBytes_ = 0;
+    simtime_t warmUpPer_;
+
+    static simsignal_t voipFrameLossSignal_;
+    static simsignal_t voipFrameDelaySignal_;
+    static simsignal_t voipPlayoutDelaySignal_;
+    static simsignal_t voipMosSignal_;
+    static simsignal_t voipTaildropLossSignal_;
+    static simsignal_t voipPlayoutLossSignal_;
+    static simsignal_t voipJitterSignal_;
+    static simsignal_t voipReceivedThroughputSignal_;
+
+    unsigned int numPacketsRcvd_ = 0;
+
+    void finish() override;
+
+  protected:
+
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
+    void initialize(int stage) override;
+    void handleMessage(cMessage *msg) override;
+    void refreshDisplay() const override;
+    double eModel(simtime_t delay, double loss);
+    void playout(bool finish);
+
+    // UdpSocket::ICallback methods
+    void socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet) override;
+    void socketErrorArrived(inet::UdpSocket *socket, inet::Indication *indication) override;
+    void socketClosed(inet::UdpSocket *socket) override;
+};
+
+} //namespace
+
+#endif
+

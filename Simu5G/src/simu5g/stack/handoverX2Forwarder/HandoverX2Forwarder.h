@@ -1,0 +1,75 @@
+//
+//                  Simu5G
+//
+// Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
+//
+// This file is part of a software released under the license included in file
+// "license.pdf". Please read LICENSE and README files before using it.
+// The above files and the present reference are part of the software itself,
+// and cannot be removed from it.
+//
+
+#ifndef __HANDOVERX2FORWARDER_H_
+#define __HANDOVERX2FORWARDER_H_
+
+#include <inet/common/ModuleRefByPar.h>
+
+#include "simu5g/common/LteCommon.h"
+#include "simu5g/x2/packet/X2ControlInfo_m.h"
+#include "simu5g/stack/handoverX2Forwarder/X2HandoverControlMsg.h"
+#include "simu5g/stack/handoverX2Forwarder/X2HandoverDataMsg.h"
+
+namespace simu5g {
+
+using namespace omnetpp;
+
+class HandoverPacketHolderEnb;
+
+//
+// HandoverX2Forwarder
+//
+class HandoverX2Forwarder : public cSimpleModule
+{
+
+  protected:
+
+    // X2 identifier
+    X2NodeId nodeId_;
+
+    // reference to the gates
+    cGate *x2ManagerInGate_ = nullptr;
+    cGate *x2ManagerOutGate_ = nullptr;
+
+    inet::ModuleRefByPar<HandoverPacketHolderEnb> handoverPacketHolder_;
+
+    // flag for seamless/lossless handover
+    bool losslessHandover_;
+
+  protected:
+
+    void initialize(int stage) override;
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
+    void handleMessage(cMessage *msg) override;
+
+    void handleX2Message(cPacket *pkt);
+
+    // receive handover command on X2 from the source eNB
+    void receiveHandoverCommand(MacNodeId ueId, MacNodeId enb, bool startHo);
+
+    // send an IP datagram to the X2 Manager (called internally via gate)
+    void forwardDataToTargetEnb(inet::Packet *datagram, MacNodeId targetEnb);
+
+    // receive data from X2 message and send it to the X2 Manager
+    void receiveDataFromSourceEnb(inet::Packet *datagram, MacNodeId sourceEnb);
+
+  public:
+    // send handover command on X2 to the eNB
+    void sendHandoverCommand(MacNodeId ueId, MacNodeId enb, bool startHo);
+
+};
+
+} //namespace
+
+#endif /* __HANDOVERX2FORWARDER_H_ */
+

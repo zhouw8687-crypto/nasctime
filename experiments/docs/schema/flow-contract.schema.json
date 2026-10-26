@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dnv.local/schema/flow-contract.schema.json",
+  "title": "FlowContract",
+  "description": "DNV 业务流契约。一条流从识别方式、流量特征到确定性承诺的完整描述。单位显式：字段名后缀 Ns/Us/Ms/Kbps/Bytes；时基为 gPTP 域整数纳秒。",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": { "const": "dnv/v1alpha1" },
+    "kind": { "const": "FlowContract" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "spec": { "$ref": "#/$defs/spec" }
+  },
+  "x-cross-field-constraints": [
+    "spec.guarantees.latency.p99Ms <= spec.guarantees.latency.maxMs",
+    "spec.guarantees.bandwidth.committedKbps <= spec.guarantees.bandwidth.peakKbps",
+    "spec.redundancy.class == 'R2' implies spec.redundancy.pathDiversity == 'required'",
+    "spec.guarantees.jitter.maxUs < spec.traffic.periodUs * 1000",
+    "spec.app.class == 'INDUSTRIAL_CONTROL' implies spec.guarantees.latency.maxMs <= spec.traffic.periodUs / 1000",
+    "spec.traffic.frameSizeBytes.min <= spec.traffic.frameSizeBytes.max",
+    "spec.traffic.framesPerPeriod * spec.traffic.frameSizeBytes.max <= spec.traffic.maxBurstBytes"
+  ],
+  "$defs": {
+    "spec": {
+      "type": "object",
+      "required": ["flowId", "app", "endpoints", "identification", "traffic", "guarantees"],
+      "additionalProperties": false,
+      "properties": {
+        "flowId": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,64}$" },
+        "app": {
+          "type": "object",
+          "required": ["class"],
+          "additionalProperties": false,
+          "properties": {
+            "class": {
+              "enum": ["XR", "INDUSTRIAL_CONTROL", "BEST_EFFORT", "BULK"]
+            },
+            "profile": { "type": "string" }
+          }
+        },
+        "endpoints": {
+          "type": "object",
+          "required": ["src", "dst"],
+          "additionalProperties": false,
+          "properties": {
+            "src": { "$ref": "#/$defs/endpoint" },
+            "dst": { "$ref": "#/$defs/endpoint" }
+          }
+        },
+        "identification": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "l2": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "vlanId": { "type": "integer", "minimum": 0, "maximum": 4095 },
+                "pcp": { "type": "integer", "minimum": 0, "maximum": 7 }
+              }
+            },
+            "l3": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "dscp": { "type": "integer", "minimum": 0, "maximum": 63 },
+                "dstPrefix": { "type": "string" }
+              }
+            },
+            "l4": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "proto": { "enum": ["udp", "tcp", "any"] },
+                "dstPort": { "type": "integer", "minimum": 0, "maximum": 65535 }
+              }
+            },
+            "tsn": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "streamHandle": { "type": "string" },
+                "streamRank": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "pattern": { "$ref": "#/$defs/pattern" }
+          }
+        },
+        "traffic": {
+          "type": "object",
+          "required": ["model", "periodUs", "frameSizeBytes", "framesPerPeriod"],
+          "additionalProperties": false,
+          "properties": {
+            "model": { "enum": ["periodic", "bursty", "frameBased", "poisson"] },
+            "periodUs": { "type": "number", "exclusiveMinimum": 0 },
+            "frameSizeBytes": {
+              "type": "object",
+              "required": ["min", "max"],
+              "additionalProperties": false,
+              "properties": {
+                "min": { "type": "integer", "minimum": 64 },
+                "max": { "type": "integer", "minimum": 64 }
+              }
+            },
+            "framesPerPeriod": { "type": "integer", "minimum": 1 },
+            "maxBurstBytes": { "type": "integer", "minimum": 64 }
+          }
+        },
+        "guarantees": {
+          "type": "object",
+          "required": ["bandwidth", "latency", "jitter", "loss"],
+          "additionalProperties": false,
+          "properties": {
+            "bandwidth": {
+              "type": "object",
+              "required": ["committedKbps", "peakKbps"],
+              "additionalProperties": false,
+              "properties": {
+                "committedKbps": { "type": "number", "minimum": 0 },
+                "peakKbps": { "type": "number", "minimum": 0 }
+              }
+            },
+            "latency": {
+              "type": "object",
+              "required": ["maxMs"],
+              "additionalProperties": false,
+              "properties": {
+                "maxMs": { "type": "number", "exclusiveMinimum": 0 },
+                "p99Ms": { "type": "number", "exclusiveMinimum": 0 }
+              }
+            },
+            "jitter": {
+              "type": "object",
+              "required": ["maxUs"],
+              "additionalProperties": false,
+              "properties": {
+                "maxUs": { "type": "number", "minimum": 0 }
+              }
+            },
+            "loss": {
+              "type": "object",
+              "required": ["maxRatio"],
+              "additionalProperties": false,
+              "properties": {
+                "maxRatio": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            },
+            "availability": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "maxOutageMs": { "type": "number", "minimum": 0 }
+              }
+            }
+          }
+        },
+        "redundancy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "class": { "enum": ["none", "R1", "R2"] },
+            "pathDiversity": { "enum": ["required", "preferred", "none"] },
+            "maxSkewUs": { "type": "number", "minimum": 0 }
+          }
+        },
+        "syncGroup": { "type": "string" },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 7 },
+        "admission": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "preemptible": { "type": "boolean" },
+            "maxDegradeSteps": { "type": "integer", "minimum": 0, "maximum": 4 }
+          }
+        }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "required": ["node", "port"],
+      "additionalProperties": false,
+      "properties": {
+        "node": { "type": "string" },
+        "port": { "type": "string" }
+      }
+    },
+    "pattern": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["periodic", "bursty", "unknown"] },
+        "periodUs": { "type": "number", "exclusiveMinimum": 0 },
+        "burstFrames": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

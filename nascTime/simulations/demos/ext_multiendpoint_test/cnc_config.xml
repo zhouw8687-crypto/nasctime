@@ -1,0 +1,10 @@
+<cncConfig>
+    <streams>
+        <stream id="1" pcp="6" drb="1" maxLatencyMs="5.0" bandwidthKbps="800"/>
+        <stream id="2" pcp="0" drb="0" maxLatencyMs="50.0" bandwidthKbps="2000"/>
+        <stream id="3" pcp="6" drb="1" maxLatencyMs="5.0" bandwidthKbps="800"/>
+        <stream id="4" pcp="0" drb="0" maxLatencyMs="50.0" bandwidthKbps="2000"/>
+        <stream id="5" pcp="6" drb="1" maxLatencyMs="5.0" bandwidthKbps="800"/>
+        <stream id="6" pcp="0" drb="0" maxLatencyMs="50.0" bandwidthKbps="2000"/>
+    </streams>
+</cncConfig>

@@ -1,0 +1,13 @@
+<cncConfig>
+    <!-- Stream reservations -->
+    <streams>
+        <stream id="1" pcp="6" drb="1" maxLatencyMs="5.0" bandwidthKbps="800"/>
+        <stream id="2" pcp="0" drb="0" maxLatencyMs="50.0" bandwidthKbps="2000"/>
+    </streams>
+
+    <!-- TAS Gate Control List (optional) -->
+    <gateControlList cycleTime="1ms">
+        <entry start="0us"   duration="500us" gates="255"/>  <!-- all gates open -->
+        <entry start="500us" duration="500us" gates="64"/>   <!-- only gate 6 (high prio) -->
+    </gateControlList>
+</cncConfig>

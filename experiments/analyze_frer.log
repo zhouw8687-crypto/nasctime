@@ -1,0 +1,45 @@
+done FrerAsym_N15_run0.sca
+done FrerAsym_N15_run1.sca
+done FrerAsym_N15_run10.sca
+done FrerAsym_N15_run11.sca
+done FrerAsym_N15_run12.sca
+done FrerAsym_N15_run13.sca
+done FrerAsym_N15_run14.sca
+done FrerAsym_N15_run15.sca
+done FrerAsym_N15_run17.sca
+done FrerAsym_N15_run18.sca
+done FrerAsym_N15_run2.sca
+done FrerAsym_N15_run3.sca
+done FrerAsym_N15_run4.sca
+done FrerAsym_N15_run5.sca
+done FrerAsym_N15_run6.sca
+done FrerAsym_N15_run7.sca
+done FrerAsym_N15_run8.sca
+done FrerAsym_N15_run9.sca
+done FrerBaseline_N15_run0.sca
+done FrerBaseline_N15_run1.sca
+done FrerBaseline_N15_run10.sca
+done FrerBaseline_N15_run11.sca
+done FrerBaseline_N15_run12.sca
+done FrerBaseline_N15_run13.sca
+done FrerBaseline_N15_run14.sca
+done FrerBaseline_N15_run15.sca
+done FrerBaseline_N15_run16.sca
+done FrerBaseline_N15_run17.sca
+done FrerBaseline_N15_run18.sca
+done FrerBaseline_N15_run19.sca
+done FrerBaseline_N15_run2.sca
+done FrerBaseline_N15_run3.sca
+Traceback (most recent call last):
+  File "/media/a100/data/zbw/nasctime/experiments/analyze_frer.py", line 76, in <module>
+    main()
+    ~~~~^^
+  File "/media/a100/data/zbw/nasctime/experiments/analyze_frer.py", line 53, in main
+    vix = vec_index(sca.with_suffix(".vec"))
+  File "/media/a100/data/zbw/nasctime/experiments/analyze_frer.py", line 27, in vec_index
+    vd = parse_vec_file(vec_path)
+  File "/media/a100/data/zbw/nasctime/nascTime/simulations/demos/ext_multiendpoint_test/vec_parse.py", line 64, in parse_vec_file
+    for line in f:
+                ^
+  File "<frozen codecs>", line 322, in decode
+KeyboardInterrupt

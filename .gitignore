@@ -1,0 +1,55 @@
+# ============================================================
+# nascTime 实验仓库 .gitignore
+# 原则：源码/脚本/文档/契约/结果 CSV 全部纳入；
+#       仿真产物、编译产物、第三方大包不纳入（靠 env.lock + 官方 zip 恢复）。
+# ============================================================
+
+# ---- 第三方大包与二进制归档（用 env.lock.yaml 里的 sha256 校验，不纳入 git）----
+omnetpp-6.4.0/
+inet/
+Simu5G-vanilla-1.5.0/
+*.zip
+*.tgz
+*.tar.gz
+*.tar.zst
+*.pdf
+
+# ---- 仿真产物（体积失控区，约 57G）----
+results/
+out/
+*.vec
+*.vci
+*.sca
+*.elog
+*.tkenv
+*.pcap
+*.pcapng
+
+# ---- 编译产物 ----
+*.o
+*.so
+*.so.*
+*.a
+*.d
+*.lo
+*.la
+*.dSYM/
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+.pylibs/
+.venv/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ---- 明确要保留的例外（防止上面规则误伤）----
+!experiments/specs/*.json
+!experiments/docs/schema/*.json

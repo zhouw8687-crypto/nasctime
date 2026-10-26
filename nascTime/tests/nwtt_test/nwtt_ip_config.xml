@@ -1,0 +1,36 @@
+<!-- 
+  IP configuration for NwTtTestNetwork
+
+  Address plan:
+    10.0.0.0/24  TSN domain (tsnDevice, tsnSwitch, nwTt eth side)
+    10.0.1.0/24  NW-TT ↔ UPF link
+    10.0.2.0/24  UPF ↔ gNB link
+    10.0.3.0/24  UE addresses
+ -->
+<config>
+
+  <!-- TSN device (connects to nwTt.ethIf via tsnSwitch) -->
+  <interface hosts="tsnDevice" address="10.0.0.x" netmask="255.255.255.0"/>
+
+  <!-- TSN switch (L2 only, but configurator may assign addresses) -->
+  <interface hosts="tsnSwitch" address="10.0.0.x" netmask="255.255.255.0"/>
+
+  <!-- NW-TT: ethIf side in TSN domain, pppIf side toward UPF -->
+  <interface hosts="nwTt" names="ethIf" address="10.0.0.x" netmask="255.255.255.0"/>
+  <interface hosts="nwTt" names="pppIf" address="10.0.1.x" netmask="255.255.255.0"/>
+
+  <!-- UPF -->
+  <interface hosts="upf" names="pppIf" address="10.0.1.x" netmask="255.255.255.0"/>
+  <interface hosts="upf" names="ppp0" address="10.0.2.x" netmask="255.255.255.0"/>
+
+  <!-- gNB: pppIf toward UPF, cellular toward UEs -->
+  <interface hosts="gnb" names="pppIf" address="10.0.2.x" netmask="255.255.255.0"/>
+  <interface hosts="gnb" names="cellular" address="10.0.3.x" netmask="255.255.255.0"/>
+
+  <!-- UE: cellular interface -->
+  <interface hosts="ue[*]" names="cellular" address="10.0.3.x" netmask="255.255.255.0"/>
+
+  <!-- Loopbacks and other interfaces: let configurator auto-assign -->
+  <interface hosts="**" address="10.0.x.x" netmask="255.255.255.0"/>
+
+</config>

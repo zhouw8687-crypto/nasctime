@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dnv.local/schema/observation.schema.json",
+  "title": "Observation",
+  "description": "DNV 控制面观测。只允许上报可测量量，必须带采集窗口与来源，保证可归因。",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "window", "source", "samples"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": { "const": "dnv/v1alpha1" },
+    "kind": { "const": "Observation" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "generation": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "window": {
+      "type": "object",
+      "required": ["startNs", "endNs"],
+      "additionalProperties": false,
+      "properties": {
+        "startNs": { "type": "integer", "minimum": 0 },
+        "endNs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["module", "domain"],
+      "additionalProperties": false,
+      "properties": {
+        "module": { "type": "string" },
+        "domain": { "enum": ["RAN", "WIRELINE", "GLOBAL", "TSN"] }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["metric", "value", "unit"],
+        "additionalProperties": false,
+        "properties": {
+          "metric": {
+            "enum": [
+              "drb_queue_bytes",
+              "cqi",
+              "latency_budget_used_ratio",
+              "loss_ratio",
+              "rb_utilization",
+              "path_rtt_ns",
+              "skew_ns",
+              "gptp_offset_ns",
+              "gate_miss_count"
+            ]
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "value": { "type": "number" },
+          "unit": { "type": "string" }
+        }
+      }
+    }
+  }
+}

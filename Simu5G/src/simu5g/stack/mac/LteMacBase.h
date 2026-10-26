@@ -1,0 +1,522 @@
+//
+//                  Simu5G
+//
+// Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
+//
+// This file is part of a software released under the license included in file
+// "license.pdf". Please read LICENSE and README files before using it.
+// The above files and the present reference are part of the software itself,
+// and cannot be removed from it.
+//
+
+#ifndef _LTE_LTEMACBASE_H_
+#define _LTE_LTEMACBASE_H_
+
+#include <inet/common/ModuleRefByPar.h>
+
+#include "simu5g/common/binder/Binder.h"
+#include "simu5g/common/LteCommon.h"
+#include "simu5g/common/LteControlInfo.h"
+
+namespace simu5g {
+
+using namespace omnetpp;
+
+class LteHarqBufferTx;
+class LteHarqBufferRx;
+class Binder;
+class FlowControlInfo;
+class LteMacBuffer;
+
+/**
+ * Map associating a nodeId with the corresponding TX H-ARQ buffer.
+ * Used in eNB, where there is more than one TX H-ARQ buffer.
+ */
+typedef std::map<MacNodeId, LteHarqBufferTx *> HarqTxBuffers;
+
+/**
+ * Map associating a nodeId with the corresponding RX H-ARQ buffer.
+ * Used in eNB, where there is more than one RX H-ARQ buffer.
+ */
+typedef std::map<MacNodeId, LteHarqBufferRx *> HarqRxBuffers;
+
+/*
+ * MultiMap associating a LCG group with all connections belonging to it and
+ * corresponding virtual buffer pointer
+ */
+typedef std::pair<MacCid, LteMacBuffer *> CidBufferPair;
+typedef std::pair<LteTrafficClass, CidBufferPair> LcgPair;
+typedef std::multimap<LteTrafficClass, CidBufferPair> LcgMap;
+
+/**
+ * @class LteMacBase
+ * @brief MAC Layer
+ *
+ * This is the MAC layer of LTE Stack:
+ * it performs buffering/sending packets.
+ *
+ * On each TTI, the handleSelfMessage() is called
+ * to perform scheduling and other tasks
+ */
+class LteMacBase : public cSimpleModule
+{
+    friend class LteHarqBufferTx;
+    friend class LteHarqBufferRx;
+    friend class LteHarqBufferTxD2D;
+    friend class LteHarqBufferRxD2D;
+
+  protected:
+
+    unsigned int totalOverflowedBytes_ = 0;
+    static simsignal_t macBufferOverflowDlSignal_;
+    static simsignal_t macBufferOverflowUlSignal_;
+    static simsignal_t macBufferOverflowD2DSignal_;
+    static simsignal_t receivedPacketFromUpperLayerSignal_;
+    static simsignal_t receivedPacketFromLowerLayerSignal_;
+    static simsignal_t sentPacketToUpperLayerSignal_;
+    static simsignal_t sentPacketToLowerLayerSignal_;
+
+    /*
+     * Data Structures
+     */
+    inet::ModuleRefByPar<Binder> binder_;
+
+    /*
+     * Gates
+     */
+    cGate *upInGate_ = nullptr;     /// MAC <-- RLC
+    cGate *upOutGate_ = nullptr;    /// MAC --> RLC
+    cGate *downInGate_ = nullptr;   /// MAC <-- PHY
+    cGate *downOutGate_ = nullptr;  /// MAC --> PHY
+
+    /*
+     * MAC MIB Params
+     */
+    int harqProcesses_;
+
+    /// TTI self message
+    cMessage *ttiTick_ = nullptr;
+
+    /// TTI for this node
+    double ttiPeriod_ = TTI;
+
+    /// MacNodeId
+    MacNodeId nodeId_ = NODEID_NONE;
+
+    opp_component_ptr<cModule> networkNode_;
+
+    /// MacCellId
+    MacCellId cellId_;
+
+    /// Mac Buffers maximum queue size
+    unsigned int queueSize_;
+
+    /*
+     * Outgoing connection information structure
+     * Consolidates connection descriptor, real buffer, and virtual buffer
+     */
+    struct OutgoingConnectionInfo {
+        FlowDescriptor flowInfo;        // Connection flow information
+        LteMacQueue *queue = nullptr;   // Real MAC buffer for actual packets
+        LteMacBuffer *buffer = nullptr; // Virtual buffer for scheduling decisions
+
+        OutgoingConnectionInfo() {}
+        OutgoingConnectionInfo(const FlowDescriptor& info, LteMacQueue *q, LteMacBuffer *buf) : flowInfo(info), queue(q), buffer(buf) {}
+    };
+
+    /// Consolidated outgoing connection information (replaces mbuf_, macBuffers_, and connDesc_)
+    std::map<MacCid, OutgoingConnectionInfo> connDescOut_;
+
+    /// List of pdus finalized for each user on each codeword (one entry per carrier)
+    std::map<GHz, MacPduList> macPduList_;
+
+    /// Harq Tx Buffers (one entry per carrier)
+    std::map<GHz, HarqTxBuffers> harqTxBuffers_;
+
+    /// Harq Rx Buffers (one entry per carrier)
+    std::map<GHz, HarqRxBuffers> harqRxBuffers_;
+
+    /* Incoming Connection Descriptors:
+     * a connection is stored at the first MAC SDU delivered to the RLC
+     */
+    std::map<MacCid, FlowDescriptor> connDescIn_;
+
+    /* LCG to CID and buffers map - used for supporting LCG - based scheduler operations
+     * TODO: delete/update entries on handover
+     */
+    LcgMap lcgMap_;
+
+    // Node Type
+    RanNodeType nodeType_;
+
+    // LTE or NR
+    bool isNr_ = false;
+
+    // record the last TTI that HARQ processes for a given UE have been aborted (useful for D2D switching)
+    std::map<MacNodeId, simtime_t> resetHarq_;
+
+    // reference to the phy layer
+    opp_component_ptr<LtePhyBase> phy_;
+
+    // signals for PacketFlowObserver
+    static simsignal_t macPduAckedSignal_;
+    static simsignal_t macPduDiscardedSignal_;
+    static simsignal_t rlcPduDiscardedSignal_;
+    static simsignal_t grantSentSignal_;
+    static simsignal_t ulMacPduArrivedSignal_;
+
+    // support to different numerologies
+    struct NumerologyPeriodCounter {
+        unsigned int max;
+        unsigned int current;
+    };
+    std::map<NumerologyIndex, NumerologyPeriodCounter> numerologyPeriodCounter_;
+
+    // statistics in visualization
+    bool statDisplay_;
+    uint64_t nrFromUpper_ = 0;
+    uint64_t nrFromLower_ = 0;
+    uint64_t nrToUpper_ = 0;
+    uint64_t nrToLower_ = 0;
+
+    // support to print harqErrorRate at the end of the simulation
+    unsigned int totalHarqErrorRateDlSum_ = 0;
+    unsigned int totalHarqErrorRateUlSum_ = 0;
+    unsigned int totalHarqErrorRateDlCount_ = 0;
+    unsigned int totalHarqErrorRateUlCount_ = 0;
+
+  protected:
+
+    unsigned int getNumerologyPeriodCounter(NumerologyIndex index) { return numerologyPeriodCounter_[index].current; }
+    void decreaseNumerologyPeriodCounter();
+
+  public:
+
+    /**
+     * Deletes MAC Buffers
+     */
+    ~LteMacBase() override;
+
+    /**
+     * deleteQueues() must be called on handover
+     * to delete queues for a given user
+     *
+     * @param nodeId Id of the node whose queues are deleted
+     */
+    virtual void deleteQueues(MacNodeId nodeId);
+
+    //* public utility function - drops ownership of an object
+    void dropObj(cOwnedObject *obj)
+    {
+        drop(obj);
+    }
+
+    //* public utility function - takes ownership of an object
+    void takeObj(cOwnedObject *obj)
+    {
+        take(obj);
+    }
+
+    /*
+     * DRB ID <-> LCID mapping
+     *
+     * In the current implementation, DRB IDs (used in PDCP/RLC) map 1:1 to
+     * Logical Channel IDs (used in MAC). These methods make the mapping explicit.
+     */
+
+    /**
+     * Maps a DRB ID to the corresponding Logical Channel ID.
+     * Currently a 1:1 mapping.
+     */
+    LogicalCid drbIdToLcid(DrbId drbId) { return LogicalCid(num(drbId)); }
+
+    /**
+     * Maps a Logical Channel ID to the corresponding DRB ID.
+     * Currently a 1:1 mapping.
+     */
+    DrbId lcidToDrbId(LogicalCid lcid) { return DrbId(num(lcid)); }
+
+    /**
+     * Extracts a MacCid from FlowControlInfo.
+     * Converts DrbId (from PDCP/RLC) to LogicalCid (MAC layer).
+     */
+    MacCid ctrlInfoToMacCid(const FlowControlInfo *info) {
+        return MacCid(ctrlInfoToUeId(info), drbIdToLcid(info->getDrbId()));
+    }
+
+    /*
+     * Getters
+     */
+
+    double getTtiPeriod()
+    {
+        return ttiPeriod_;
+    }
+
+    LtePhyBase *getPhy()
+    {
+        return phy_;
+    }
+
+    MacNodeId getMacNodeId()
+    {
+        ASSERT(nodeId_ != NODEID_NONE);
+        return nodeId_;
+    }
+
+    MacCellId getMacCellId()
+    {
+        return cellId_;
+    }
+
+    // Returns the virtual buffer for a specific CID
+    LteMacBuffer* getMacBuffer(MacCid cid)
+    {
+        auto it = connDescOut_.find(cid);
+        if (it == connDescOut_.end())
+            throw cRuntimeError("LteMacBase::getMacBuffer - Buffer for CID %s not found", cid.str().c_str());
+        return it->second.buffer;
+    }
+
+    // Returns list of active buffer CIDs
+    std::vector<MacCid> getActiveMacBufferCids()
+    {
+        return getActiveConnectionCids();
+    }
+
+    // Returns Traffic Class to cid mapping
+    const LcgMap& getLcgMap()
+    {
+        return lcgMap_;
+    }
+
+    // Returns flow control info for a specific CID
+    const FlowDescriptor& getConnDesc(MacCid cid)
+    {
+        auto it = connDescOut_.find(cid);
+        if (it == connDescOut_.end())
+            throw cRuntimeError("LteMacBase: Connection %s not found", cid.str().c_str());
+        return it->second.flowInfo;
+    }
+
+    // Returns list of active connection CIDs
+    std::vector<MacCid> getActiveConnectionCids()
+    {
+        std::vector<MacCid> activeCids;
+        activeCids.reserve(connDescOut_.size());
+        for (const auto& [cid,_] : connDescOut_)
+            activeCids.push_back(cid);
+        return activeCids;
+    }
+
+    // Returns the harq tx buffers
+    std::map<GHz, HarqTxBuffers> *getHarqTxBuffers()
+    {
+        return &harqTxBuffers_;
+    }
+
+    // Returns the harq rx buffers
+    std::map<GHz, HarqRxBuffers> *getHarqRxBuffers()
+    {
+        return &harqRxBuffers_;
+    }
+
+    // Returns the harq tx buffers for the given carrier
+    HarqTxBuffers *getHarqTxBuffers(GHz carrierFrequency)
+    {
+        if (harqTxBuffers_.find(carrierFrequency) == harqTxBuffers_.end())
+            return nullptr;
+        return &harqTxBuffers_[carrierFrequency];
+    }
+
+    // Returns the harq rx buffers for the given carrier
+    HarqRxBuffers *getHarqRxBuffers(GHz carrierFrequency)
+    {
+        if (harqRxBuffers_.find(carrierFrequency) == harqRxBuffers_.end())
+            return nullptr;
+        return &harqRxBuffers_[carrierFrequency];
+    }
+
+    // Returns number of Harq Processes
+    unsigned int harqProcesses() const
+    {
+        return harqProcesses_;
+    }
+
+    RanNodeType getNodeType()
+    {
+        return nodeType_;
+    }
+
+    virtual bool isD2DCapable()
+    {
+        return false;
+    }
+
+    // check whether HARQ processes have been aborted during this TTI
+    bool isHarqReset(MacNodeId srcId)
+    {
+        if (resetHarq_.find(srcId) != resetHarq_.end()) {
+            if (resetHarq_[srcId] == NOW)
+                return true;
+        }
+        return false;
+    }
+
+    void unregisterHarqBufferRx(MacNodeId nodeId);
+
+    // visualization
+    void refreshDisplay() const override;
+
+    void recordHarqErrorRate(unsigned int sample, Direction dir);
+    double getHarqErrorRate(Direction dir);
+
+    /*
+     * @author Alessandro Noferi
+     *
+     * methods called by mac layer and the HarqBuffers to notify
+     * MAC pdus events to packetFlowObserver
+     */
+    virtual void harqAckToFlowObserver(const inet::Packet *macPdu);
+    virtual void discardMacPdu(const inet::Packet *macPdu);
+
+  protected:
+
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
+
+    /**
+     * Grabs NED parameters, initializes gates
+     * and the TTI self message
+     */
+    void initialize(int stage) override;
+
+    /**
+     * Analyze gate of incoming packet
+     * and call proper handler
+     */
+    void handleMessage(cMessage *msg) override;
+
+    /**
+     * Statistics recording
+     */
+
+    /**
+     * Deleting the module
+     *
+     * Method is overridden to cancel the periodic TTI self-message,
+     * afterwards the deleteModule method of cSimpleModule is called.
+     */
+    void deleteModule() override;
+
+    /**
+     * Main loop of the Mac level, calls the scheduler
+     * and every other function every TTI: must be reimplemented
+     * by derived classes
+     */
+    virtual void handleSelfMessage() = 0;
+
+    /**
+     * sendLowerPackets() is used
+     * to send packets to lower layer
+     *
+     * @param pkt Packet to send
+     */
+    void sendLowerPackets(cPacket *pkt);
+
+    /**
+     * sendUpperPackets() is used
+     * to send packets to upper layer
+     *
+     * @param pkt Packet to send
+     */
+    void sendUpperPackets(cPacket *pkt);
+
+    /*
+     * Functions to be redefined by derived classes
+     */
+
+    virtual void macPduMake(MacCid cid = MacCid()) = 0;
+    virtual void macPduUnmake(cPacket *pkt) = 0;
+
+  public:
+    /**
+     * createOutgoingConnection() creates MAC queues and buffers for a given CID
+     * and registers the outgoing connection if they don't already exist
+     */
+    virtual void createOutgoingConnection(MacCid cid, const FlowDescriptor& connInfo);
+
+    /**
+     * deleteOutgoingConnection() deletes MAC queues and buffers for a given CID
+     * and unregisters the outgoing connection
+     *
+     * @param cid Connection identifier to delete
+     * @throw cRuntimeError if the connection does not exist
+     */
+    virtual void deleteOutgoingConnection(MacCid cid);
+
+    /**
+     * clearOutgoingConnectionBuffers() empties the MAC queues and virtual buffers
+     * for a given CID without destroying the connection. Used during D2D mode switch
+     * to preserve the connection for potential mode switch back.
+     */
+    virtual void clearOutgoingConnectionBuffers(MacCid cid);
+
+    /**
+     * createIncomingConnection() registers an incoming connection for a given CID
+     * if it doesn't already exist
+     */
+    virtual void createIncomingConnection(MacCid cid, const FlowDescriptor& connInfo);
+
+  protected:
+    /**
+     * bufferizePacket() is called every time a packet is
+     * received from the upper layer
+     */
+    virtual bool bufferizePacket(cPacket *pkt);
+
+    /**
+     * handleUpperMessage() is called every time a packet is
+     * received from the upper layer
+     */
+    virtual void handleUpperMessage(cPacket *pkt)
+    {
+        bufferizePacket(pkt);
+    }
+
+    /**
+     * macHandleFeedbackPkt is called every time a feedback pkt arrives on MAC
+     */
+    virtual void macHandleFeedbackPkt(cPacket *pkt)
+    {
+    }
+
+    /*
+     * Receives and handles scheduling grants - implemented in LteMacUe
+     */
+    virtual void macHandleGrant(cPacket *pkt)
+    {
+    }
+
+    /*
+     * Receives and handles RAC requests (eNodeB implementation) and responses (LteMacUe implementation)
+     */
+    virtual void macHandleRac(cPacket *pkt)
+    {
+    }
+
+    /*
+     * Update UserTxParam stored in every lteMacPdu when an rtx changes this information
+     */
+    virtual void updateUserTxParam(cPacket *pkt) = 0;
+
+    /// Upper Layer Handler
+    void fromRlc(cPacket *pkt);
+
+    /// Lower Layer Handler
+    virtual void fromPhy(cPacket *pkt);
+};
+
+} //namespace
+
+#endif

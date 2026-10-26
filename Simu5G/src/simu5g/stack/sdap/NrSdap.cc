@@ -1,0 +1,268 @@
+//
+//                  Simu5G
+//
+// Authors: Mohamed Seliem (University College Cork), Andras Varga (OpenSim Ltd)
+//
+// This file is part of a software released under the license included in file
+// "license.pdf". Please read LICENSE and README files before using it.
+// The above files and the present reference are part of the software itself,
+// and cannot be removed from it.
+//
+
+
+#include "NrSdap.h"
+
+#include "simu5g/stack/sdap/packet/NrSdapHeader_m.h"
+#include "simu5g/common/QfiTag_m.h"
+#include "simu5g/common/LteControlInfoTags_m.h"
+#include "simu5g/common/LteCommon.h"
+#include "simu5g/common/LteControlInfo.h"
+#include <inet/common/packet/Packet.h>
+#include <inet/common/stlutils.h>
+#include <inet/common/ProtocolTag_m.h>
+
+namespace simu5g {
+
+Define_Module(NrSdap);
+
+
+void NrSdap::initialize()
+{
+    binder_.reference(this, "binderModule", true);
+    pdcpMux_.reference(this, "pdcpMuxModule", true);
+
+    // Load QFI-to-DRB mapping from drbConfig parameter
+    const cValueArray *arr = check_and_cast_nullable<const cValueArray *>(par("drbConfig").objectValue());
+    if (arr && arr->size() > 0) {
+        drbTable_.loadFromJson(arr);
+        EV << "NrSdap: Loaded " << drbTable_.getDrbMap().size() << " DRB entries from drbConfig" << endl;
+        for (const auto& [key, ctx] : drbTable_.getDrbMap())
+            EV << "  " << key << ": " << ctx << endl;
+    }
+
+    // Get pointer to reflective QoS table
+    reflectiveQosTable.reference(this, "reflectiveQosTableModule", false);
+
+    // Only UE uses reflective QoS table
+    std::string nodeRole = par("nodeRole").stdstringValue();
+    isUe = (nodeRole == "UE");
+    if (!isUe && reflectiveQosTable.getNullable() != nullptr)
+        throw cRuntimeError("Only UE may use a reflective QoS table");
+}
+
+bool NrSdap::requiresSdapHeader(const DrbConfig *drb)
+{
+    // SDAP header is needed when the QFI cannot be unambiguously determined
+    // from the DRB alone on the RX side:
+    // - default DRB: may carry packets with unmapped QFIs (fallback traffic)
+    // - multiple QFIs mapped: reverse mapping is ambiguous
+    // Caller must ensure drb is not null.
+    return drb->isDefault || drb->qfiList.size() > 1;
+}
+
+bool NrSdap::shouldEnableReflectiveQos(Qfi qfi)
+{
+    return par("useReflectiveQos").boolValue(); // for now -- should come from RRC config
+}
+
+const inet::Protocol *NrSdap::getUpperProtocol(const DrbConfig *ctx)
+{
+    // If an explicit upperProtocol is configured on this DRB, use it
+    if (ctx && !ctx->upperProtocol.empty()) {
+        const inet::Protocol *proto = inet::Protocol::findProtocol(ctx->upperProtocol.c_str());
+        if (!proto)
+            throw cRuntimeError("Unknown protocol '%s' in drbConfig upperProtocol", ctx->upperProtocol.c_str());
+        return proto;
+    }
+
+    // Otherwise derive from pduSessionType
+    PduSessionType pduSessionType = ctx ? ctx->pduSessionType : IP_V4;
+    switch (pduSessionType) {
+        case IP_V4:
+        case IP_V4V6:
+            return &inet::Protocol::ipv4;
+        case IP_V6:
+            return &inet::Protocol::ipv6;
+        case ETHERNET:
+            return &inet::Protocol::ethernetMac;
+        case UNSTRUCTURED:
+            throw cRuntimeError("Unstructured PDU session requires explicit 'upperProtocol' in drbConfig");
+        default:
+            throw cRuntimeError("Unknown PDU session type: %d", (int)pduSessionType);
+    }
+}
+
+void NrSdap::handleMessage(cMessage *msg)
+{
+    auto arrivalGate = msg->getArrivalGate();
+    auto pkt = check_and_cast<inet::Packet *>(msg);
+
+    if (arrivalGate == gate("upperLayerIn"))
+        handleUpperPacket(pkt);
+    else if (arrivalGate == gate("pdcpIn"))
+       handleLowerPacket(pkt);
+    else
+        throw cRuntimeError("Message arrived on unknown gate: %s", arrivalGate->getFullName());
+}
+
+void NrSdap::handleUpperPacket(inet::Packet *pkt)
+{
+    EV_INFO << "DEBUG_SDAP_IDENTITY fullPath=" << getFullPath()
+                << " isUe=" << isUe << endl;
+    Qfi qfi = QFI_NONE;
+    bool qfiFromReflectiveQos = false;
+
+    // Extract QFI from QfiReq tag if present (set by GtpUser from GTP-U header, or by app directly)
+    if (pkt->hasTag<QfiReq>()) {
+        qfi = pkt->getTag<QfiReq>()->getQfi();
+        EV_INFO << "SDAP TX: QFI = " << qfi << " extracted from QfiReq\n";
+    }
+    else if (isUe) {
+        // UE UL: try reflective QoS first (3GPP-defined mechanism)
+        if (reflectiveQosTable != nullptr) {
+            Qfi reflectiveQfi = reflectiveQosTable->lookupUplinkQfi(pkt);
+            if (reflectiveQfi != QFI_NONE) {
+                qfi = reflectiveQfi;
+                qfiFromReflectiveQos = true;
+                EV_INFO << "SDAP TX: QFI = " << qfi << " derived from reflective QoS\n";
+            }
+        }
+        // Optional non-standard fallback: derive QFI from DSCP field of the IP header
+        if (qfi == QFI_NONE && par("useDscpAsQfiFallback").boolValue()) {
+            if (pkt->hasTag<FlowControlInfo>()) {
+                uint8_t tos = (uint8_t)pkt->getTag<FlowControlInfo>()->getTypeOfService();
+                if (tos > 0) {
+                    qfi = Qfi(tos >> 2);
+                    EV_INFO << "SDAP TX: QFI = " << qfi << " derived from DSCP (fallback)\n";
+                }
+            }
+        }
+        if (qfi == QFI_NONE)
+            EV_WARN << "SDAP TX: No QFI from reflective QoS or DSCP, using QFI=0 (default DRB)\n";
+    }
+    else {
+        throw cRuntimeError("SDAP TX: QfiReq tag missing on gNB DL path -- GtpUser should always set it");
+    }
+
+    // Lookup DRB context: nodeId is NODEID_NONE on UE, destUeId on gNB
+    MacNodeId nodeId = NODEID_NONE;
+    if (!isUe) {
+        nodeId = pkt->getTag<FlowControlInfo>()->getDestId();
+        if (nodeId == NODEID_NONE)
+            EV_WARN << "SDAP TX: destId not set in FlowControlInfo\n";
+    }
+
+    const DrbConfig *drb = drbTable_.getDrbForQfi(nodeId, qfi);
+    if (!drb) {
+        drb = drbTable_.getDefaultDrb(nodeId);
+        if (drb)
+            EV_WARN << "SDAP TX: No DRB mapping for nodeId=" << nodeId << " QFI=" << qfi
+                    << ", falling back to default DRB " << drb->drbId << "\n";
+    }
+    if (!drb)
+        throw cRuntimeError("SDAP TX: No DRB available for nodeId=%d", (int)num(nodeId));
+
+    EV_INFO << "SDAP TX: Selected DRB=" << drb->drbId << " for QFI=" << qfi << "\n";
+
+    // Check if SDAP header is required for this DRB
+    if (requiresSdapHeader(drb)) {
+        // Build SDAP header according to 3GPP TS 37.324
+        auto sdapHeader = makeShared<NrSdapHeader>();
+        sdapHeader->setQfi(qfi);
+
+        // Enable reflective QoS flag if this QFI supports it and we're not already using reflective QoS
+        bool enableReflectiveQos = shouldEnableReflectiveQos(qfi) && !qfiFromReflectiveQos;  //TODO on gNB only?
+        sdapHeader->setReflectiveQoS(enableReflectiveQos);
+
+        pkt->insertAtFront(sdapHeader);
+        EV_INFO << "SDAP TX: Inserted SDAP header with QFI = " << qfi
+                << ", reflectiveQoS = " << (enableReflectiveQos ? "true" : "false") << "\n";
+    }
+    else {
+        EV_INFO << "SDAP TX: No SDAP header required for DRB " << drb->drbId << "\n";
+    }
+
+    // Set DRB ID and RLC type on FlowControlInfo for PDCP/RLC entity creation and routing
+    auto lteInfo = pkt->getTagForUpdate<FlowControlInfo>();
+    lteInfo->setDrbId(drb->drbId);
+    lteInfo->setRlcType(drb->rlcType);
+
+    // Establish the connection unless its PDCP TX entity already exists. The entity
+    // registry is authoritative: entities deleted at handover or D2D mode switch get
+    // re-established by the next packet, even for an already-seen (drbId, destId) pair.
+    if (pdcpMux_->lookupTxEntity(DrbKey(lteInfo->getDestId(), drb->drbId)) == nullptr)
+        binder_->establishUnidirectionalDataConnection(lteInfo.get());
+
+    // Set protocol tag for outgoing frame to PDCP layer
+    pkt->addTagIfAbsent<PacketProtocolTag>()->setProtocol(&LteProtocol::sdap);
+
+    EV_INFO << "SDAP TX: Forwarding to DRB " << drb->drbId << "\n";
+    send(pkt, "pdcpOut");
+}
+
+void NrSdap::handleLowerPacket(inet::Packet *pkt)
+{
+    auto lteInfo = pkt->findTag<FlowControlInfo>();
+    DrbId drbId = lteInfo ? lteInfo->getDrbId() : DRBID_NONE;
+    MacNodeId ueId = (!isUe && lteInfo) ? lteInfo->getSourceId() : NODEID_NONE;
+    const DrbConfig *drb = (drbId != DRBID_NONE) ? drbTable_.getDrb(DrbKey(ueId, drbId)) : nullptr;
+    if (!drb)
+        throw cRuntimeError("SDAP RX: Unknown DRB %d (ueId=%d) -- missing drbConfig entry?",
+                            (int)num(drbId), (int)num(ueId));
+
+    EV_INFO << "SDAP RX: Received packet from DRB " << drbId << ": " << pkt->peekAtFront() << "\n";
+
+    Qfi qfi = QFI_NONE;
+
+    // Check if packet has SDAP header (should be at the front according to 3GPP TS 37.324)
+    if (requiresSdapHeader(drb)) {
+        // Extract SDAP header from the front of the packet
+        auto sdapHeader = pkt->removeAtFront<NrSdapHeader>();
+        qfi = sdapHeader->getQfi();
+
+        EV_INFO << "SDAP RX: Extracted SDAP header with QFI = " << qfi << "\n";
+
+        // Validate QFI range (0-63 according to 3GPP)
+        if (num(qfi) > 63) {
+            EV_WARN << "SDAP RX: Invalid QFI value " << qfi << " (should be 0-63)\n";
+            qfi = QFI_NONE;
+        }
+
+        // Handle reflective QoS if UE and enabled
+        if (sdapHeader->getReflectiveQoS()) {
+            EV_INFO << "SDAP RX: Reflective QoS enabled for QFI " << qfi << "\n";
+            if (isUe && reflectiveQosTable != nullptr) {
+                reflectiveQosTable->handleDownlinkFlow(pkt, qfi);
+            }
+        }
+    }
+    else {
+        EV_INFO << "SDAP RX: No SDAP header expected for DRB " << drbId << "\n";
+
+        // For DRBs without SDAP header, derive QFI from DRB context (use first QFI in the list)
+        if (drb && !drb->qfiList.empty()) {
+            qfi = drb->qfiList[0];
+            EV_INFO << "SDAP RX: Using QFI " << qfi << " from DRB context\n";
+        }
+    }
+
+    // Validate QFI ↔ DRB consistency
+    if (drb) {
+        if (!contains(drb->qfiList, qfi))
+            EV_WARN << "SDAP RX: DRB/QFI mismatch! Received on DRB=" << drbId << ", QFI=" << qfi << " not in qfiList\n";
+    }
+
+    // Add QoS indication tag for upper layers
+    auto qosIndTag = pkt->addTagIfAbsent<QfiInd>();
+    qosIndTag->setQfi(qfi);
+
+    // Set protocol tag for upper layer based on PDU session type
+    const inet::Protocol *upperProto = getUpperProtocol(drb);
+    pkt->addTagIfAbsent<PacketProtocolTag>()->setProtocol(upperProto);
+
+    EV_INFO << "SDAP RX: Forwarding packet with QFI=" << qfi << " to upper layer (protocol: " << upperProto->getName() << ")\n";
+    send(pkt, "upperLayerOut");
+}
+
+
+} //namespace

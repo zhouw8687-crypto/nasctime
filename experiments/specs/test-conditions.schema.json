@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dnv.local/schema/test-conditions.schema.json",
+  "title": "DNV TestConditions",
+  "description": "指标测试条件。defaults 为通用默认值，metrics.<id>.conditions 按键深合并覆盖；允许自由增删，未知字段不报错。",
+  "type": "object",
+  "required": ["schemaVersion", "defaults", "metrics"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "const": "dnv/tc/1" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "topology": { "type": "object", "additionalProperties": true },
+        "channel": { "type": "object", "additionalProperties": true },
+        "traffic": { "type": "object", "additionalProperties": true },
+        "scheduler": { "type": "object", "additionalProperties": true },
+        "scenario": { "type": "object", "additionalProperties": true },
+        "statistics": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["title", "threshold", "unit", "direction"],
+        "additionalProperties": true,
+        "properties": {
+          "title": { "type": "string" },
+          "sourceText": { "type": "string", "description": "项目书原文依据，便于评审追溯" },
+          "threshold": { "type": "object", "additionalProperties": true },
+          "unit": { "type": "string" },
+          "direction": { "enum": ["upper_bound", "lower_bound", "qualitative"] },
+          "measurePoint": { "type": "string" },
+          "simulatable": { "enum": ["yes", "partial", "no"] },
+          "simulatableReason": { "type": "string" },
+          "calibration": { "enum": ["uncalibrated", "calibrated"] },
+          "oracle": { "type": "string" },
+          "conditions": { "type": "object", "additionalProperties": true },
+          "relatedMetrics": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

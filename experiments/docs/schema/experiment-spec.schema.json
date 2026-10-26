@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dnv.local/schema/experiment-spec.schema.json",
+  "title": "ExperimentSpec",
+  "description": "DNV 实验规格。作为 manifest 生成的唯一输入：拓扑、流契约引用、控制器策略、场景与指标。",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "topology", "flows", "scenario"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": { "const": "dnv/v1alpha1" },
+    "kind": { "const": "ExperimentSpec" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
+        "description": { "type": "string" }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["wired-tsn", "tsn5g", "ran-only", "trace-based"] },
+        "params": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "flows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["ref"],
+        "additionalProperties": false,
+        "properties": {
+          "ref": { "type": "string" },
+          "enabled": { "type": "boolean", "default": true }
+        }
+      }
+    },
+    "controllers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ran": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "periodMs": { "type": "number", "exclusiveMinimum": 0, "default": 10 },
+            "policy": { "type": "string" }
+          }
+        },
+        "wan": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "periodMs": { "type": "number", "exclusiveMinimum": 0, "default": 500 },
+            "policy": { "type": "string" }
+          }
+        },
+        "orchestrator": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "admission": { "enum": ["strict", "permissive"], "default": "strict" },
+            "marginRatio": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.1 }
+          }
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "required": ["durationS", "warmupS", "seeds"],
+      "additionalProperties": false,
+      "properties": {
+        "durationS": { "type": "number", "exclusiveMinimum": 0 },
+        "warmupS": { "type": "number", "minimum": 0 },
+        "seeds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "repetitions": { "type": "integer", "minimum": 1, "default": 1 },
+        "channel": { "type": "object", "additionalProperties": true },
+        "recording": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "vectorWhitelist": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "scalarRecording": { "type": "boolean", "default": true }
+          }
+        }
+      }
+    },
+    "kpis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "enum": [
+              "delivery_ratio",
+              "e2e_latency",
+              "jitter_pdv",
+              "skew",
+              "contract_violation_ratio",
+              "isolation_gap",
+              "residence_time",
+              "sync_error",
+              "gate_hit_ratio",
+              "rb_utilization",
+              "control_convergence"
+            ]
+          },
+          "quantiles": {
+            "type": "array",
+            "items": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
+          },
+          "group": { "type": "string" },
+          "flowId": { "type": "string" }
+        }
+      }
+    },
+    "ablation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "modules": {
+          "type": "array",
+          "items": { "enum": ["DP-2", "DP-3", "DP-4", "CP-1", "CP-2", "CP-4"] }
+        }
+      }
+    }
+  }
+}

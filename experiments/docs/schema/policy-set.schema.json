@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dnv.local/schema/policy-set.schema.json",
+  "title": "PolicySet",
+  "description": "DNV 控制面下发到数据面的唯一指令载体。带单调递增 generation、前置条件（乐观并发）、事务与回滚语义。",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "scope", "policies", "transaction"],
+  "additionalProperties": false,
+  "x-semantics": [
+    "precondition.generation 必须等于目标当前 generation，否则拒绝（STALE_GENERATION），不允许部分生效",
+    "同一 target 上存在冲突 action 且 conflictPolicy.mode=reject 时，整包拒绝",
+    "conflictPolicy.mode=priority 时：priority 数值小者胜；同优先级按 metadata.generation 新者胜",
+    "任一 action 执行失败：按 transaction.onFailure 回滚到 generation-1",
+    "validUntilNs 到期未刷新：策略失效，回落本地兜底配置（静态 GCL + 严格优先级）"
+  ],
+  "$defs": {
+    "nsTimestamp": { "type": "integer", "minimum": 0 },
+    "flowId": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,64}$" },
+    "actionQos": {
+      "type": "object",
+      "required": ["kind", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "qos" },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "drb": { "type": "integer", "minimum": 0, "maximum": 31 },
+            "priority": { "type": "integer", "minimum": 0, "maximum": 15 },
+            "delayBudgetMs": { "type": "number", "exclusiveMinimum": 0 },
+            "gbr": { "type": "boolean" },
+            "mcsOffset": { "type": "integer", "minimum": -10, "maximum": 10 }
+          }
+        }
+      }
+    },
+    "actionRoute": {
+      "type": "object",
+      "required": ["kind", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "route" },
+        "params": {
+          "type": "object",
+          "required": ["paths"],
+          "additionalProperties": false,
+          "properties": {
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "array", "items": { "type": "string" } }
+            },
+            "bindMode": { "enum": ["single", "primaryBackup", "replicateAll"] }
+          }
+        }
+      }
+    },
+    "actionShape": {
+      "type": "object",
+      "required": ["kind", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "shape" },
+        "params": {
+          "type": "object",
+          "required": ["shaperType", "rateKbps", "burstBytes"],
+          "additionalProperties": false,
+          "properties": {
+            "shaperType": { "enum": ["TB", "LB", "CBS", "ATS"] },
+            "rateKbps": { "type": "number", "minimum": 0 },
+            "burstBytes": { "type": "integer", "minimum": 64 },
+            "queueDepthBytes": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "actionSchedule": {
+      "type": "object",
+      "required": ["kind", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "schedule" },
+        "params": {
+          "type": "object",
+          "required": ["port", "cycleNs"],
+          "additionalProperties": false,
+          "properties": {
+            "port": { "type": "string" },
+            "cycleNs": { "type": "integer", "minimum": 1 },
+            "gateControlList": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["startNs", "durationNs", "gates"],
+                "additionalProperties": false,
+                "properties": {
+                  "startNs": { "type": "integer", "minimum": 0 },
+                  "durationNs": { "type": "integer", "minimum": 1 },
+                  "gates": { "type": "string", "pattern": "^0x[0-9A-Fa-f]{1,2}$" }
+                }
+              }
+            },
+            "scheduler": { "enum": ["SP", "WRR", "DRR", "CBS"] },
+            "weights": { "type": "array", "items": { "type": "number", "minimum": 0 } }
+          }
+        }
+      }
+    },
+    "actionReplicate": {
+      "type": "object",
+      "required": ["kind", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "replicate" },
+        "params": {
+          "type": "object",
+          "required": ["copies"],
+          "additionalProperties": false,
+          "properties": {
+            "copies": { "type": "integer", "minimum": 2, "maximum": 4 },
+            "alignMode": { "enum": ["none", "slowest", "targetDelay"] },
+            "targetDelayNs": { "type": "integer", "minimum": 0 },
+            "dedupWindowNs": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "actionReserve": {
+      "type": "object",
+      "required": ["kind", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "reserve" },
+        "params": {
+          "type": "object",
+          "required": ["rbCount"],
+          "additionalProperties": false,
+          "properties": {
+            "rbCount": { "type": "integer", "minimum": 0 },
+            "durationMs": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "apiVersion": { "const": "dnv/v1alpha1" },
+    "kind": { "const": "PolicySet" },
+    "metadata": {
+      "type": "object",
+      "required": ["name", "generation", "issuedBy", "issuedAtNs"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
+        "generation": { "type": "integer", "minimum": 1 },
+        "issuedBy": { "type": "string" },
+        "issuedAtNs": { "$ref": "#/$defs/nsTimestamp" },
+        "validUntilNs": { "$ref": "#/$defs/nsTimestamp" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "required": ["domain", "targets"],
+      "additionalProperties": false,
+      "properties": {
+        "domain": { "enum": ["RAN", "WIRELINE", "GLOBAL"] },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "precondition": {
+      "type": "object",
+      "required": ["generation"],
+      "additionalProperties": false,
+      "properties": {
+        "generation": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "policies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["flowId", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "flowId": { "$ref": "#/$defs/flowId" },
+          "action": {
+            "oneOf": [
+              { "$ref": "#/$defs/actionQos" },
+              { "$ref": "#/$defs/actionRoute" },
+              { "$ref": "#/$defs/actionShape" },
+              { "$ref": "#/$defs/actionSchedule" },
+              { "$ref": "#/$defs/actionReplicate" },
+              { "$ref": "#/$defs/actionReserve" }
+            ]
+          }
+        }
+      }
+    },
+    "conflictPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["reject", "priority"] },
+        "tieBreaker": { "enum": ["priority", "generation"] }
+      }
+    },
+    "transaction": {
+      "type": "object",
+      "required": ["onFailure", "timeoutMs"],
+      "additionalProperties": false,
+      "properties": {
+        "onFailure": { "enum": ["revert", "abort"] },
+        "timeoutMs": { "type": "number", "exclusiveMinimum": 0 },
+        "ackRequired": { "type": "boolean" }
+      }
+    }
+  }
+}

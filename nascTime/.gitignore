@@ -1,0 +1,46 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE artifacts
+.idea/
+.vscode/
+.settings/
+
+# Build artifacts
+out/
+
+# OMNeT++ / simulation outputs
+results/
+*.vec
+*.vci
+*.sca
+*.elog
+*.log
+
+.qtenvrc
+.cmdenv-log
+
+# Generated files
+.oppfeaturestate
+.nedexclusions
+*.d
+*.o
+*.so
+*.dll
+*.lib
+*.a
+
+# opp_msgc-generated files (from .msg sources)
+*_m.h
+*_m.cc
+
+# Build artifacts
+/src/nascTime
+/src/Makefile
+
+# opp_msgc-generated files (from .msg sources)
+*_m.h
+*_m.cc

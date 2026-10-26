@@ -1,0 +1,883 @@
+sdap/simulations/nr/nascTime_tests/ext_multiendpoint_test$ python3 -c "
+> import pandas as pd
+> df = pd.read_csv('fading.csv')
+> for col in ['received','delay_mean_ms','delay_p99_ms']:
+>     df[col] = pd.to_numeric(df[col], errors='coerce')
+> 
+> print('=== CLC P99 delay (ms) ===')
+> clc = df[df['flow']=='clc_hp']
+> print(clc.groupby(['N','scheduler','fading'])['delay_p99_ms'].mean().unstack('fading').round(2))
+> 
+> print()
+> print('=== CLC delivery ===')
+> print(clc.groupby(['N','scheduler','fading'])['received'].mean().unstack('fading').round(0))
+> 
+> print()
+> print('=== MV-HP delivery ===')
+> mv = df[df['flow']=='mv_hp']
+> print(mv.groupby(['N','scheduler','fading'])['received'].mean().unstack('fading').round(0))
+> 
+> print()
+> print('=== BLK delivery ===')
+> blk = df[df['flow']=='blk_be']
+> print(blk.groupby(['N','scheduler','fading'])['received'].mean().unstack('fading').round(0))
+> "
+=== CLC P99 delay (ms) ===
+fading          False    True 
+N  scheduler                  
+1  MAXCI         2.25     2.25
+   QOS_PF        2.25     2.25
+10 MAXCI         6.29     5.29
+   QOS_PF        4.08     3.58
+20 MAXCI      6789.93  5430.79
+   QOS_PF      411.83   275.11
+
+=== CLC delivery ===
+fading          False    True 
+N  scheduler                  
+1  MAXCI      28000.0  28000.0
+   QOS_PF     28000.0  28000.0
+10 MAXCI      28000.0  28000.0
+   QOS_PF     28000.0  28000.0
+20 MAXCI      21698.0  22908.0
+   QOS_PF     27955.0  28019.0
+
+=== MV-HP delivery ===
+fading         False   True 
+N  scheduler                
+10 MAXCI      5600.0  5600.0
+   QOS_PF     5600.0  5600.0
+20 MAXCI      3142.0  3461.0
+   QOS_PF     3074.0  3067.0
+
+=== BLK delivery ===
+fading         False   True 
+N  scheduler                
+10 MAXCI      2737.0  2809.0
+   QOS_PF     2803.0  2793.0
+20 MAXCI      2797.0  2789.0
+   QOS_PF     2382.0  2609.0
+omnetpp-6.3.0+inet-4.6.0+simu5g-1.4.1_sdap:~/simu5g-workspace-sdap/simu5g-1.4.1_
+sdap/simulations/nr/nascTime_tests/ext_multiendpoint_test$ 
+omnetpp-6.3.0+inet-4.6.0+simu5g-1.4.1_sdap:~/simu5g-workspace-sdap/simu5g-1.4.1_
+sdap/simulations/nr/nascTime_tests/ext_multiendpoint_test$ 
+omnetpp-6.3.0+inet-4.6.0+simu5g-1.4.1_sdap:~/simu5g-workspace-sdap/simu5g-1.4.1_
+sdap/simulations/nr/nascTime_tests/ext_multiendpoint_test$ 
+omnetpp-6.3.0+inet-4.6.0+simu5g-1.4.1_sdap:~/simu5g-workspace-sdap/simu5g-1.4.1_
+sdap/simulations/nr/nascTime_tests/ext_multiendpoint_test$ python3 -c "
+> from vec_parse import parse_vec_file
+> from pathlib import Path
+> import statistics
+> 
+> targets = {
+>     'residenceTime:vector': 1e6,
+>     'oscillatorCompensationChanged:vector': 1.0,
+> }
+> 
+> print(f\"{'N':>3} {'run':>3} {'sched':>8} {'fade':>6} {'metric':>36} {'module':>52} {'mean':>12} {'std':>12} {'max':>12}\")
+> print('-' * 150)
+> 
+> scheds = ['MAXCI','MAXCI','MAXCI','MAXCI','MAXCI','MAXCI','QOS_PF','QOS_PF','QOS_PF','QOS_PF','QOS_PF','QOS_PF']
+> fades  = ['false','false','false','true','true','true','false','false','false','true','true','true']
+> 
+> for n in [1, 10, 20]:
+>     for run in range(12):
+>         vec = Path(f'results/sweep_fading/Fade_N{n}_run{run}.vec')
+>         if not vec.exists():
+>             continue
+> 
+>         vectors = parse_vec_file(vec)
+>         sched = scheds[run]
+>         fade = fades[run]
+> 
+>         for metric_name, scale in targets.items():
+>             for vid, v in vectors.items():
+>                 if v['name'] == metric_name and v['values']:
+>                     vals = [x * scale for x in v['values']]
+>                     mean = statistics.mean(vals)
+>                     std = statistics.stdev(vals) if len(vals) > 1 else 0.0
+>                     maxv = max(vals)
+> 
+>                     print(f\"{n:>3} {run:>3} {sched:>8} {fade:>6} {metric_name:>36} {v['module']:>52} {mean:>12.3f} {std:>12.3f} {maxv:>12.3f}\")
+> " 2>/dev/null
+  N run    sched   fade                               metric                                               module         mean          std          max
+------------------------------------------------------------------------------------------------------------------------------------------------------
+  1   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2772.173      249.280     2999.948
+  1   0    MAXCI  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1   1    MAXCI  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1   2    MAXCI  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2756.548      250.190     2999.948
+  1   3    MAXCI   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1   4    MAXCI   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1   5    MAXCI   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1   6   QOS_PF  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1   7   QOS_PF  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1   8   QOS_PF  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1   9   QOS_PF   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1  10   QOS_PF   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+  1  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2499.852        0.096     2499.948
+  1  11   QOS_PF   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+  1  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -0.000        0.001        0.000
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     4959.563     2494.461    14999.948
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3946.185     1639.610    10999.948
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     6245.292     2613.824    13999.948
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3767.603     1585.267    13999.948
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     4000.872     1613.869    11499.948
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3883.682     1523.146    11499.948
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3671.624     1388.894    10498.844
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3539.935     1104.462     7999.948
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3466.254     1144.529     8498.844
+ 10   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     3447.301     1269.634    10999.948
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.021        0.160
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -6.042     4931.162    39673.778
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock        4.965     4236.246    44345.935
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock       17.827     3618.617    29157.467
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        1.253     5002.574    44167.839
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       -2.643      655.725     3912.910
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock       -2.665     1781.764    15737.402
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock       -9.550     3341.495    27018.502
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock        0.982     2439.267    19832.508
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       -0.883     3115.382    23895.586
+ 10   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock        1.218     1255.946    12136.810
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     3867.876     1597.095    11499.948
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3601.145     1286.327     8999.948
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3589.980     1480.266    10499.948
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3552.026     1267.808     9999.948
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3642.435     1467.318    12499.948
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3519.670     1432.075    11499.948
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3716.098     1393.088     9499.948
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3530.833     1257.784    12499.948
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3323.239     1001.201     7999.948
+ 10   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     3295.339     1137.706     9499.948
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.002        0.026        0.160
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -3.835     2551.545    15739.339
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       -0.639     1133.387    11896.000
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock       -1.820     2467.396    19676.346
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        7.233     3253.621    20567.045
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock        5.499     6174.853    43991.168
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock       -3.193     1601.823    11802.331
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock        1.060     1598.045    11991.168
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock       -0.570      756.854     7927.746
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       -0.508     2208.701    15801.549
+ 10   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock        1.851     2035.588    20071.454
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     4093.554     1728.865    11499.948
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3938.422     1643.645    10999.948
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3932.827     1565.791     9999.948
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     4009.843     1755.271    12999.948
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3681.726     1470.390    14999.948
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3941.763     1531.862    10499.948
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3852.480     1473.318    10999.948
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3744.226     1349.042     9999.948
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3563.420     1213.654     8499.948
+ 10   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     3425.032     1106.976    10999.948
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.000        0.012        0.154
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -4.209     1413.408    11485.793
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock        2.536     1865.784    15991.168
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock       -1.177     2961.045    24990.796
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock      -51.374     1895.684    15864.254
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       -2.019     1378.685    11485.793
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock       -2.189     1069.792     7991.168
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock       -2.112     3253.912    23895.586
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock       -2.741     1569.738    15801.549
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock        4.442     3450.244    27991.168
+ 10   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock        0.428      378.052     4039.644
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     4027.633     1684.520    11499.948
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3779.880     1599.472    11999.948
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3731.899     1268.166     8499.948
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3573.421     1288.036     9999.948
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3846.849     1353.012    10999.948
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3844.614     1577.231    10499.948
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3623.637     1351.837    10499.948
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3507.568     1239.426    12499.948
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3264.262      864.209     7499.948
+ 10   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     3311.142      982.830     7999.948
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.021        0.160
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock        1.825     5692.821    40313.677
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       -2.032     2371.586    15991.168
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock       -2.545     1622.075    15927.458
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        1.301     2285.865    24282.559
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       -2.317     2806.493    23706.688
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock       -1.599     3225.891    27991.168
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock        1.774     2491.663    16118.387
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock        0.839     1128.631     7991.168
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       -1.120     1361.065     8023.261
+ 10   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock       -0.754     1556.348    15739.339
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     3766.361     1531.072    11499.948
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3777.522     1395.633     9499.948
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3844.496     1758.273    13999.948
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3773.041     1487.970    13499.948
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3796.495     1505.396    10499.948
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3805.431     1509.997     9999.948
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3577.753     1272.476     8999.948
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3586.689     1307.396     8999.948
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3343.378     1153.141     7999.948
+ 10   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     3229.546     1015.290     7999.948
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.002        0.030        0.160
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -3.379     3326.334    24282.559
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       -4.955     2241.927    15864.254
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock        0.377      856.013     8187.672
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        1.994     3408.202    24184.645
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       -6.121     1999.224    11802.331
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock        6.741     3147.524    33604.168
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock        2.905     3064.557    28216.903
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock      -52.898      791.688        1.952
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock        2.117      924.274     8187.590
+ 10   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock       -0.000        0.502        1.984
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     4157.170     1660.265    12499.948
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3887.080     1341.170     9999.948
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3917.214     1559.006    11499.948
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3670.570     1326.186     9999.948
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3874.818     1467.037     9999.948
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3956.289     1720.306    15498.844
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3584.637     1231.826     9999.948
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3512.090     1104.874     8999.948
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3334.635      961.532     6999.948
+ 10   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     3333.519     1058.539     8999.948
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -5.544     4235.770    24087.518
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock        2.703     4607.013    27769.016
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock        2.290     2699.249    15864.254
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock       -2.518     3022.426    24087.518
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock        0.860     1517.428    16120.129
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock      -16.143     6140.921    62736.439
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock        0.363      536.234     4072.620
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock        7.154     4091.726    37180.958
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       -1.839     2265.280    15864.254
+ 10   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock        0.286     1134.044     8023.261
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     3132.567      364.254     5998.844
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3078.990      395.492     4999.948
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3085.689      449.770     5999.948
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3109.132      232.372     4998.844
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3061.138      331.204     5498.844
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3082.346      375.220     4999.948
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3082.348      405.322     5999.948
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3085.692      420.202     5998.844
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3503.100     1083.486     6499.948
+ 10   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     2526.545      112.657     2999.948
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.015        0.160
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock      -74.183     1738.180    11848.980
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock        2.305     2868.263    16185.393
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock        0.647     1968.271    12087.871
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        0.571     1514.355    16055.390
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       -0.927     1894.365    15864.254
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock        0.430      758.340     8055.613
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock       -0.000        0.402        1.976
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock       -0.931     2043.050    19911.522
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       -2.004     2044.320    15866.206
+ 10   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock       -0.000        0.402        1.968
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     3156.040      594.580     6499.948
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3172.779      628.037     6498.844
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3179.475      628.832     6499.948
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3156.040      623.053     6498.844
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3153.806      583.786     6498.844
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3884.837     1693.395    10499.948
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3160.507      565.422     6499.948
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3156.035      576.418     6498.844
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3294.433      861.273     6999.948
+ 10   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     2584.614      220.734     3999.948
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock       -0.000        0.001       -0.000
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -1.428     2628.380    16055.390
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       -2.508     2912.320    19911.522
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock        0.584     2921.441    19991.168
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock       -1.785     3172.109    23895.586
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock        0.075     3516.611    23895.586
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock        4.721     2464.620    20652.033
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock        0.145     1695.016    15991.168
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock       -4.711     4147.960    23800.762
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock        0.144     2682.587    20071.454
+ 10   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock        0.001      534.531     3991.168
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     3735.176      459.613     5499.948
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3767.550      359.857     4999.948
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3706.151      463.810     5499.948
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3711.739      440.869     5499.948
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3712.852      444.747     6998.844
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3729.596      467.844     5499.948
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3738.532      360.114     4499.948
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3710.608      458.140     6498.844
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3727.361      480.740     5499.948
+ 10   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     2504.157       47.112     2999.948
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.002        0.026        0.160
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock        2.160     1974.946    12136.810
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock        0.000        0.376        1.822
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock        1.933     3012.003    16185.393
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        0.790     1781.678    12087.871
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       -0.185     2112.708    12138.639
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock        1.009     1862.526    16120.129
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock       -0.000        0.376        1.822
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock        0.069     3108.070    15927.458
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock        2.387     2155.569    16251.186
+ 10   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock       -0.000        0.376        1.808
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     3089.016      258.673     5498.844
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3022.054      330.264     4499.948
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3034.321      369.970     4998.844
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3093.483      254.925     4999.948
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3042.139      339.916     4499.948
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3024.287      348.212     4499.948
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3030.983      355.712     4499.948
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3044.376      372.693     4999.948
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3025.395      352.135     4499.948
+ 10   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     2514.239      107.406     3499.948
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.017        0.160
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -1.003      758.522     7896.411
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       -0.000        0.480        1.976
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock        1.295     2868.140    16118.145
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock       -0.000        0.479        1.974
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock        0.855     1606.028    12039.325
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock       -0.000        0.479        1.984
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock       -0.000        0.479        1.968
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock       -0.000        0.479        1.974
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock        0.792     1565.088    12039.325
+ 10   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock        0.000      377.971     3991.168
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     2904.878      446.741     4999.948
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     2888.142      432.004     5499.948
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     2894.833      441.362     4999.948
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     2923.814      525.381     5498.844
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     2899.303      460.931     5499.948
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     2937.187      563.990     7498.844
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     2881.443      423.641     4999.948
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     2898.184      466.167     4999.948
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     2892.606      420.049     4999.948
+ 10  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     2515.374       87.116     2999.948
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.024        0.160
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock        1.212     2425.531    20071.454
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       -0.000        0.335        1.815
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock        0.436     1612.479    12136.810
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        0.573     5792.740    19991.168
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       -0.000        0.335        1.808
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock       -3.280     6226.212    19832.508
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock        0.000     1514.404    15991.168
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock       -0.428     1135.620    11943.394
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       -0.000        0.335        1.808
+ 10  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock       -0.000        0.335        1.808
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     3796.599      523.413     6998.844
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     3841.283      321.749     4999.948
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator     3794.401      441.482     5499.948
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator     3785.475      384.098     5498.844
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator     3817.829      493.666     6499.948
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator     3812.251      471.289     5999.948
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator     3807.801      332.825     4499.948
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator     3777.660      399.015     4998.844
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator     3796.640      412.423     5499.948
+ 10  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator     2501.998       33.385     2999.948
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.017        0.160
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       -8.070     4421.015    19754.119
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       -0.000        0.302        1.976
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock        0.360     2215.121    16120.129
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        1.371     2217.794    20152.387
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock        2.822     2873.844    16120.129
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock        3.307     2518.452    12186.146
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock       -0.000        0.302        1.968
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock        0.868     1977.493    12136.810
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       -0.000        0.301        1.960
+ 10  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock       -0.000        0.301        1.968
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    30883.712    30124.649   150999.948
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    24830.108    19209.802    96999.948
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    20200.643    19775.935   117499.948
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    19983.018    20032.754   146999.948
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    19746.397    17908.126   102499.948
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    16687.250    13776.814    68499.948
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator    20153.766    21490.661   120999.948
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator    16505.326    12724.478    64499.948
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    16505.328    13394.420    91999.948
+ 20   0    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator    16977.424    14067.428    63499.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator    15378.094    13996.673    88499.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator    14334.583    15315.515   132999.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator    14109.125    12924.664    87499.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator    14788.810    10975.838    66999.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator    15580.103    11654.404    79999.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator    17078.989    12193.396    64499.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator    14493.051     9882.926    52499.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator    14763.143    10777.072    49999.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator    13659.346    10799.113    60499.948
+ 20   0    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator    11499.748     8996.523    61999.948
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.017        0.160
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       43.910      377.730     3278.689
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       -0.000        0.517        2.142
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock        0.004        0.568        2.982
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock      246.591    18908.590   223946.833
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock      355.644    31094.399   363170.647
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock       -0.003        0.598        2.844
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock      -96.215     8305.104    76261.829
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock      -59.624     8640.227    83672.770
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       41.005     3295.777    39093.810
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock     -217.516    11898.640    88128.108
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock       14.047    24194.409   247958.504
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock      464.722     6955.364   104098.361
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock       -0.009        0.579        2.472
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock      -17.885     3536.371    35285.459
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock       18.108     2616.422    27896.707
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock       78.009    12189.528   137156.195
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock       26.470     4032.731    45444.509
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock       -0.007        0.584        2.549
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock       34.426     5468.186    61468.377
+ 20   0    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock      -32.550    10708.053   109366.375
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    31952.805    35631.920   240499.948
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    22302.094    19573.306   117999.948
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    20288.705    20756.090   127498.844
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    17837.814    18182.160   173499.948
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    19880.219    15420.023    78499.948
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    17524.195    16457.883    85999.948
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator    14192.719    14061.355    95498.844
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator    15661.467    11527.979    55499.948
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    15048.748    10434.787    54999.948
+ 20   1    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator    16990.713    13302.084    59499.948
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator    15410.351    14696.454    88988.984
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator    12769.731    12249.498    76999.948
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator    11543.166     9482.943    59999.948
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator    13533.123     8892.783    55999.948
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator    13384.683     9824.070    79498.844
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator    13129.106     8889.516    44999.948
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator    12203.880     8356.900    51499.948
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator    12977.320     8559.930    47499.948
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator    13844.505    10138.006    54999.948
+ 20   1    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator    11623.520     8333.695    45999.948
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.024        0.160
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock      434.214    31525.367   361893.390
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       24.774     8215.800    89485.572
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock     -994.598    40163.319   306923.406
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock     -128.401    13938.915    96019.179
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock     -852.175    28366.373   188616.144
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock        0.014        0.539        4.354
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock      -76.474    46547.209   482869.151
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock       33.117     4955.389    47210.390
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       -0.001        0.476        2.112
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock       -0.001        0.486        2.377
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock      -88.373     9664.391    72656.720
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock        0.003        0.483        2.471
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock       36.536     3748.956    43467.594
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock        0.001        0.497        2.278
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock     -514.106    15608.605    96946.792
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock        0.001        0.477        2.045
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock       39.799     4790.031    54840.911
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock       -0.002        0.484        2.388
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock       40.831     4802.032    55074.627
+ 20   1    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock       36.230    15360.374   132770.921
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    37918.329    40279.413   300498.844
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    22843.458    20360.748   127999.948
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    20372.481    20703.891   131999.948
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    17785.427    15135.254   132499.948
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    19035.419    15392.280    79499.948
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    17258.633    15846.222    99499.948
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator    16149.255    16365.551    87999.948
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator    16629.169    14673.208    85999.948
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    16524.255    13158.095   106999.948
+ 20   2    MAXCI  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator    15735.193    13144.996    71999.948
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator    16624.704    14811.718    84499.948
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator    13085.639    11691.842    64499.948
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator    13614.655    11806.582    64999.948
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator    13653.722    10596.278    79999.948
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator    13861.311     9758.759    59499.948
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator    14083.407    10370.916    74498.844
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator    13838.990    10537.374    63499.948
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator    14125.818     9639.133    64999.948
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator    12756.401     8622.112    42499.948
+ 20   2    MAXCI  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator    10673.811     7368.632    34999.948
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.021        0.160
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock    -3511.189    49185.855   112024.033
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock      378.253    37004.065   400817.322
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock       88.144    26288.928   285705.273
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock      297.000    16431.255   202234.781
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       -0.011        0.367        1.823
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock        0.001        0.360        2.205
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock      -74.109     5493.500    49115.060
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock        0.005        0.406        3.324
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       67.332    26025.230   282247.177
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock      -47.629     1440.900     8922.000
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock       -0.004        0.341        1.864
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock       -7.949     6228.929    64877.069
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock       46.144     6128.140    68957.056
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock        0.004        0.359        2.330
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock       -0.002        0.346        1.891
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock      184.432    49346.053   541313.190
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock        0.000        0.353        2.000
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock        4.985     1057.388    11710.125
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock        0.000        0.342        2.059
+ 20   2    MAXCI  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock       -0.001        0.345        1.883
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    28177.233    23933.013   113999.948
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    20590.191    17623.542   135999.948
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    19347.992    18387.344    99499.948
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    16903.798    14666.165    87499.948
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    15794.426    14046.844   105499.948
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    15162.727    12424.467    69499.948
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator    15808.932    16911.899   103999.948
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator    14477.461    11971.827    73999.948
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    13910.495     9511.529    44999.948
+ 20   3    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator    14831.254    12793.717    77499.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator    13489.733    10988.872    58499.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator    11997.551    11257.482    84499.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator    12361.390     9960.591    56499.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator    11581.254     7652.087    47499.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator    13149.336     8920.390    51499.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator    13515.408     8276.942    45999.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator    12930.586     9522.775    57999.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator    13693.979     9888.619    51499.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator    12874.783     9411.120    62999.948
+ 20   3    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator    10392.640     8468.463    56499.948
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.000        0.012        0.160
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       64.075     9463.098    79988.960
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock      138.007    14704.352   168665.831
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock     -110.831    20392.090   190290.269
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        8.982     4083.121    44109.529
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock        0.004        0.325        2.424
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock      -15.570     4572.070    46503.070
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock      -84.775     7640.006    70623.762
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock        0.001        0.317        2.121
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock       -1.422     1511.606    15801.549
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock     -358.485    23623.346   206073.622
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock     -123.332    18457.450   176887.336
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock       -0.000        0.310        1.968
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock       -0.002        0.316        1.929
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock       -8.101     3495.433    35991.168
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock      -54.183      810.919        2.310
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock      -16.999      254.452        2.009
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock        0.001        0.299        2.112
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock        0.000        0.309        1.937
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock       -0.002        0.313        1.922
+ 20   3    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock        0.001        0.306        2.332
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    29410.255    28357.485   130499.948
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    19515.153    15834.128    83999.948
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    18424.753    19617.389   124999.948
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    18395.746    16706.371   134986.274
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    17068.727    13029.599    65999.948
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    15591.046    13854.394    76499.948
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator    15497.296    15343.612   107999.948
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator    13910.247    10966.286    54999.948
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    14470.512     9909.467    48999.948
+ 20   4    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator    13070.961    11249.548    65499.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator    14026.316    13255.852    86999.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator    11905.780     9862.724    55499.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator    11035.244     8246.313    48499.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator    12334.354     8987.012    57999.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator    13899.086    11275.253    66999.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator    12762.925     8499.627    51499.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator    12959.354     9715.467    64499.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator    12736.140     9053.115    53499.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator    11594.396     8506.567    57499.948
+ 20   4    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator    10488.369     8589.686    68499.948
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.002        0.030        0.160
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock     -983.948    26072.933   139935.195
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock     -138.955    26707.626   213808.526
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock       10.828     8723.959    93323.520
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock    -1374.004    38691.116   277466.462
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock      135.976     9298.146   112233.633
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock      242.429    30446.306   247889.882
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock       -2.749     6558.482    66954.429
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock       -0.002        0.618        2.299
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock     -110.345    16392.317   160296.916
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock        0.001        0.638        2.510
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock       71.505    17735.396   195112.976
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock       15.123     5516.193    59916.823
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock        7.826      852.994     9841.241
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock        0.001        0.601        2.177
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock       -0.009        0.615        2.330
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock       -0.010        0.619        2.067
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock       -0.002        0.621        2.073
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock       -0.006        0.626        2.448
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock      -62.321     6655.536    62954.785
+ 20   4    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock       -5.875     2335.163    23991.168
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    29362.325    26361.310   158499.948
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    23413.654    20143.029   102499.948
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    19024.142    20275.898   113999.948
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    16519.683    14332.211    92499.948
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    17335.529    14458.512    91998.844
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    15057.627    13719.097    80499.948
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator    15506.285    15074.543   125499.948
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator    14209.415    11723.624    68999.948
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    13887.986    11080.660    68999.948
+ 20   5    MAXCI   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator    14771.915    12559.749    69499.948
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator    14492.897    14396.588    91499.948
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator    11367.897     9745.337    76499.948
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator    12354.504    11240.099    76999.948
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator    12617.897     9801.718    73999.948
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator    12629.058     8823.971    52499.948
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator    12665.881     9126.808    56499.948
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator    12333.296     9896.699    66484.234
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator    13182.629    10559.857    55499.948
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator    11698.254     8316.905    39999.948
+ 20   5    MAXCI   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator    10415.886     7805.888    43999.948
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.002        0.029        0.160
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock     1008.390    48401.680   610245.087
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock     -385.173    42635.716   405010.007
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock       28.177    26869.858   274184.645
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock        0.016        0.590        2.998
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock     1046.564    59487.462   734430.672
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock      175.096     8130.279   103211.561
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock       21.681     7251.030    77211.552
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock        0.007        0.565        2.631
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock        0.001        0.547        2.176
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock       -0.008        0.568        2.066
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock       -0.004        0.552        2.276
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock       -0.001        0.564        2.392
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock       -0.003        0.553        2.130
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock       -0.002        0.547        2.073
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock       -0.004        0.564        2.244
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock      -18.379    17042.203   173219.653
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock       -4.023     1131.232    11485.793
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock       -0.006        0.537        2.008
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock       -0.001        0.561        2.496
+ 20   5    MAXCI   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock        4.425     1156.915    12702.508
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    17622.344    51871.068   515499.948
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    14838.838    31044.386   284499.948
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    59171.952   169794.808  1258499.948
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    32324.508    78642.229   566999.948
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    18100.012    34329.496   263498.844
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    50365.396   112751.136   759499.948
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator   134673.902   190255.318   878999.948
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator   394143.307   460123.418  1922999.948
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    41761.053    82375.382   543999.948
+ 20   6   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator   188289.767   279455.924  1616499.948
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator   749527.153   721770.995  3037499.948
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator  4439225.200  2745625.883  9252499.948
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator  4178308.017  3527842.210 12632999.948
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator  1723324.575  1793043.912  6997499.948
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator   648261.962   807711.431  3777997.614
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator   278456.144   301186.272  1176499.948
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator   873870.695   934595.245  3831499.948
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator  2262646.128  1674530.079  6073999.948
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator  2610848.471  1816320.423  6939999.948
+ 20   6   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator     4345.491      419.902     5999.948
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.002        0.025        0.160
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock    -2383.846    34458.925    50739.678
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock      156.971     4759.342    55737.705
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock     3268.952    66161.112   973649.489
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock     1443.885    74196.388   973770.492
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock    -2651.509    34670.029    55737.705
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock    -2068.091    35195.978    95901.308
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock     -829.408    83011.126   973770.492
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock      438.388   133436.529   973770.492
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock    -2257.883    65775.336   645901.639
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock   -34398.087   178550.210   973770.492
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock   -14391.557   158524.046   973770.492
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock   -17023.657   130847.778   481967.214
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock   -26204.504   174347.299   586065.575
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock   -20319.598   191295.130   947540.984
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock       84.949   169377.463   973770.492
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock   -20680.380   136885.138   973770.492
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock   -28712.530   150985.450   495081.968
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock   -28767.245   190700.462   947506.809
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock   -20079.949   162360.859   888524.591
+ 20   6   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock       -0.000        0.617        1.968
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     9555.300    13815.240    91499.948
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator     9943.690    15902.544   120999.948
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    13836.569    24326.705   190999.948
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    20210.364    44570.739   392999.948
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    10645.692    16378.048   119999.948
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    17850.001    32633.841   225499.948
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator    97719.069   138203.452   761499.948
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator   292067.866   340534.023  1521499.948
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    23108.970    41372.207   234499.948
+ 20   7   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator    36558.810    83725.494   620499.948
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator   807832.281   750472.753  3627499.948
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator 22724180.166  7028828.211 26628999.948
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator  2063558.427  1674744.025  5831998.844
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator   744137.821   609751.251  2545999.948
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator   243991.807   260034.810  1123498.844
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator   146597.826   197723.958   986998.844
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator   304525.314   412035.752  2128999.948
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator   964609.271  1070668.029  4172999.948
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator  1161097.472  1211712.691  4615499.948
+ 20   7   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator     4108.874      232.334     4999.948
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.002        0.027        0.160
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock        0.396     2231.862    23613.276
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock     -179.943     4265.050    21889.752
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock      -17.144     3198.984    23070.323
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock    -5617.890    56189.465   104098.361
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       -5.630     7752.235    66397.625
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock       50.434    12116.333   104098.361
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock   -29467.323   122699.408   104098.361
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock   -24971.816   116409.168   104098.361
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock     -761.466    12958.351    55737.705
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock      476.749    12262.997   104067.602
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock   -31425.457   163019.671   757377.050
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock   -10731.416   209199.125   481967.211
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock   -14618.437   145067.263   501639.344
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock   -23428.731   164257.458   973770.493
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock   -30570.884   149327.294   973770.492
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock   -29156.732   142695.981   908196.721
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock   -20754.167   172500.840   973770.492
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock   -16121.236   178644.841   960655.738
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock   -34319.156   176763.477   582786.885
+ 20   7   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock       -0.000        0.646        1.975
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    14082.088    26917.152   206499.948
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    16068.729    33065.497   224998.844
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    58551.431   111911.376   763499.948
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    19501.814    41320.107   287999.948
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    25179.318    57433.906   373499.948
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    67382.865   128463.314   776999.948
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator   451563.891   565493.043  2695499.948
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator   407238.276   611559.282  2709499.948
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    79460.063   149155.992   882999.948
+ 20   8   QOS_PF  false                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator   220577.250   314515.082  1389498.844
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator   845229.082   918384.788  3670999.948
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator   156699.802   151821.232   378499.948
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator  4138299.149  3282809.366 12021499.948
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator  1218496.887  1296954.973  4654499.948
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator   285067.349   409832.883  2146498.844
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator   619152.736   904049.520  4117498.844
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator   768284.551  1056124.140  4463999.948
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator  2540082.077  2890249.797 10303999.948
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator  2699836.433  2525259.529  9239499.948
+ 20   8   QOS_PF  false                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator     4162.420      257.171     4999.948
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.003        0.034        0.160
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock    -2186.631    27650.234    21969.934
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock    -4359.310    47230.372    22633.610
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock    -4459.459    54646.262   104098.361
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock    -4036.182    48737.266   104098.361
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock     -167.485    12274.594   104098.361
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock   -10057.333    69355.410   104098.361
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock   -13257.847   114714.060   560655.738
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock   -15152.707   133365.354   945081.967
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock   -14640.068    88681.894   104098.361
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock   -22516.631   110958.309   161286.208
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock   -23368.328   143445.431   501639.344
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock     2094.262    64044.234    95717.059
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock   -12415.088   195283.161   973661.590
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock   -31023.969   174450.594   501592.465
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock   -17075.735   103408.526   111116.216
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock   -35722.524   150319.264   582786.885
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock   -28958.547   154063.218   488524.591
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock   -17439.724   181663.538   973770.492
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock   -28197.859   189178.292   582786.885
+ 20   8   QOS_PF  false oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock        0.009        0.671        1.984
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    10999.591    19231.437   188998.844
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    12134.688    24908.403   240999.948
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    23423.538    46049.579   260999.948
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    21424.551    44224.825   282999.948
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    12298.725    23987.845   240999.948
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    26975.238    50410.475   311999.948
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator   198708.164   291992.090  1652499.948
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator   214835.464   272005.391  1231499.948
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    24138.177    54346.825   470999.948
+ 20   9   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator    59751.168    92389.284   481999.948
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator  1002498.722   991489.447  4502499.948
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator  3470627.559  2630226.360 10378499.948
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator  1575305.350  1283716.483  5145499.948
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator   358778.674   399336.504  1525995.034
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator   120813.284   158073.293   769499.948
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator   139729.505   192026.953  1188999.948
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator   183669.989   219077.758  1010499.948
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator   375454.009   363774.494  1468499.948
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator   390551.518   398718.725  1863499.948
+ 20   9   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator     4073.292      177.382     4499.948
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.021        0.160
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock    -2566.234    36776.120   107992.976
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       45.672     4469.612    28103.582
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock      172.854     5685.948    55737.705
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock      569.856     6794.437    95901.491
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock     -181.439     7537.904    23993.136
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock       15.552     7178.736    55737.705
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock   -24468.462   114620.509   104098.361
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock   -18733.744   131883.987   822131.148
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock     -234.395     5745.598     3278.689
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock    -5655.399    59844.453   104098.361
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock   -29866.739   179131.701   645901.639
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock   -21107.677   247954.496   944262.487
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock   -33823.704   175068.954   581147.209
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock   -45099.719   168315.922   938524.590
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock   -13021.658    89303.607   104098.361
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock   -30102.043   127366.783   267989.200
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock   -25750.830   152068.547   963934.802
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock   -43484.241   182284.933   595901.639
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock   -56875.332   176484.412   500020.508
+ 20   9   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock       -0.000        0.504        1.968
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator    21493.171    60932.564   549499.948
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    23100.404    64865.816   556999.948
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    38834.863    86964.607   572999.948
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    26502.242    64198.168   407999.948
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    29323.549    72256.495   556999.948
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    56908.751   112212.123   720499.948
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator   467480.023   749304.533  3652499.948
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator   325578.919   431339.301  1878999.948
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    74955.684   152107.075   906999.948
+ 20  10   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator   202146.323   335483.186  1561999.948
+ 20  10   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator  3804312.290  3635800.783 12424499.948
+ 20  10   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator  2668452.281  2033545.451  7276499.948
+ 20  10   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator   676263.687   794704.126  3782999.948
+ 20  10   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator   342035.730   397974.037  1757499.948
+ 20  10   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator   286714.668   334515.523  1415499.948
+ 20  10   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator   693153.713   761037.456  3041499.948
+ 20  10   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator  2066613.030  2030983.909  7730499.948
+ 20  10   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator  2242826.786  2414990.420  9331499.948
+ 20  10   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator     4075.652      185.771     4999.948
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.000        0.005        0.080
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock      283.369     6830.533    55737.705
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock    -1842.175    33862.054    55737.705
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock    -9180.838    68168.863    55737.706
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock      218.772      818.483     3278.689
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock    -4896.477    97390.774   731991.168
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock    -8251.601    66646.234    55737.705
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock   -10326.606    93983.929   394262.295
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock   -17217.779   100522.737   199361.939
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock    -8748.045    67769.876    55737.705
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock   -24771.031   114243.000   104098.361
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock   -37223.641   169432.218   501639.344
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock    -3382.510   156243.518   986885.246
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock   -38190.789   166047.540   494973.065
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock   -24445.493   128392.825   645901.639
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock   -32218.285   128728.744   104098.361
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock   -27996.077   149145.899   495059.545
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock   -30541.815   185106.786   495081.968
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock   -73886.280   190595.815   571021.684
+ 20  10   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock       -0.000        0.368        1.968
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[0].translator     9091.225    13801.193   134499.948
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[1].translator    10191.667    16255.839   132999.948
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[2].translator    26478.633    60245.890   519999.948
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[3].translator    24588.045    61713.467   558999.948
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[4].translator    10847.915    18544.940   156999.948
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[5].translator    30985.377    62501.125   482499.948
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[6].translator   152357.083   201664.021  1023499.948
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[7].translator   274461.980   474128.706  2637498.844
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[8].translator    22005.357    44654.989   350499.948
+ 20  11   QOS_PF   true                 residenceTime:vector      ExtendedMultiEndpointNetwork.dsTt[9].translator    61121.865   114021.327   711998.844
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[10].translator   946552.813   896361.968  3554993.394
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[11].translator  5534253.248  3853540.303 12002998.844
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[12].translator   883678.248   818209.524  3876999.884
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[13].translator   478956.218   451626.475  1642498.844
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[14].translator   118049.957   168918.294   882999.948
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[15].translator   142787.390   202544.439   893499.948
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[16].translator   227346.885   251911.931  1359499.948
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[17].translator   407402.061   399004.471  1782499.948
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[18].translator   695879.063   658641.796  3048499.948
+ 20  11   QOS_PF   true                 residenceTime:vector     ExtendedMultiEndpointNetwork.dsTt[19].translator     4118.003      212.825     4499.948
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector         ExtendedMultiEndpointNetwork.tsnSwitch.clock        0.001        0.021        0.160
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[0].clock       30.498     2265.569    25522.519
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[1].clock       36.918     3101.217    25200.804
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[2].clock    -1244.671    76262.800   858259.023
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[3].clock     1666.016    42951.753   586885.246
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[4].clock       47.724     6649.327    55737.705
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[5].clock      145.262     4284.139    23991.168
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[6].clock   -23510.958   109695.182    55737.705
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[7].clock   -18765.747   100116.884   104098.361
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[8].clock      298.041     6964.268    55737.705
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector     ExtendedMultiEndpointNetwork.tsnDeviceB[9].clock   -12220.629    81551.615    91073.963
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[10].clock   -55061.228   168780.430   501627.428
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[11].clock    21584.699   355311.245   619672.131
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[12].clock   -14273.917   183046.932   954098.361
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[13].clock   -40146.533   168443.952   914754.098
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[14].clock   -15371.965    95102.149   104098.361
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[15].clock   -18606.097   132633.969   744262.295
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[16].clock   -41243.117   143850.742   104098.361
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[17].clock   -44442.453   149587.672   154098.361
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[18].clock   -35029.078   164682.295   547540.984
+ 20  11   QOS_PF   true oscillatorCompensationChanged:vector    ExtendedMultiEndpointNetwork.tsnDeviceB[19].clock       -0.000        0.434        1.968
+

@@ -1,0 +1,302 @@
+//
+//                  Simu5G
+//
+// Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+//
+// This file is part of a software released under the license included in file
+// "license.pdf". Please read LICENSE and README files before using it.
+// The above files and the present reference are part of the software itself,
+// and cannot be removed from it.
+//
+
+#include "simu5g/stack/phy/LtePhyBase.h"
+#include "simu5g/common/LteCommon.h"
+#include "simu5g/stack/mac/LteMacEnb.h"
+
+namespace simu5g {
+
+using namespace omnetpp;
+
+short LtePhyBase::airFramePriority_ = 10;
+
+//Statistics
+simsignal_t LtePhyBase::averageCqiDlSignal_ = registerSignal("averageCqiDl");
+simsignal_t LtePhyBase::averageCqiUlSignal_ = registerSignal("averageCqiUl");
+simsignal_t LtePhyBase::averageCqiD2DSignal_ = registerSignal("averageCqiD2D");
+
+
+void LtePhyBase::initialize(int stage)
+{
+    ChannelAccess::initialize(stage);
+
+    if (stage == inet::INITSTAGE_LOCAL) {
+        binder_.reference(this, "binderModule", true);
+        // get gate ids
+        upperGateIn_ = findGate("upperGateIn");
+        upperGateOut_ = findGate("upperGateOut");
+        radioInGate_ = findGate("radioIn");
+
+        // Initialize and watch statistics
+        ueTxPower_ = par("ueTxPower");
+        eNodeBtxPower_ = par("eNodeBTxPower");
+        microTxPower_ = par("microTxPower");
+
+        WATCH(numAirFrameReceived_);
+        WATCH(numAirFrameNotReceived_);
+
+        multicastD2DRange_ = par("multicastD2DRange");
+        enableMulticastD2DRangeCheck_ = par("enableMulticastD2DRangeCheck");
+    }
+    else if (stage == INITSTAGE_SIMU5G_REGISTRATIONS2) {
+        initializeChannelModel();
+    }
+}
+
+void LtePhyBase::handleMessage(cMessage *msg)
+{
+    EV << "LtePhyBase::handleMessage - new message received" << endl;
+
+    if (msg->isSelfMessage()) {
+        handleSelfMessage(msg);
+    }
+    // AirFrame
+    else if (msg->getArrivalGate()->getId() == radioInGate_) {
+        handleAirFrame(msg);
+    }
+    // message from stack
+    else if (msg->getArrivalGate()->getId() == upperGateIn_) {
+        handleUpperMessage(msg);
+    }
+    // unknown message
+    else {
+        EV << "Unknown message received." << endl;
+        delete msg;
+    }
+}
+
+void LtePhyBase::handleControlMsg(LteAirFrame *frame,
+        UserControlInfo *userInfo)
+{
+    auto pkt = check_and_cast<inet::Packet *>(frame->decapsulate());
+    delete frame;
+    *(pkt->addTagIfAbsent<UserControlInfo>()) = *userInfo;
+    delete userInfo;
+    send(pkt, upperGateOut_);
+}
+
+void LtePhyBase::handleUpperMessage(cMessage *msg)
+{
+    EV << "LtePhy: message from stack" << endl;
+
+    auto pkt = check_and_cast<inet::Packet *>(msg);
+    auto lteInfo = pkt->removeTag<UserControlInfo>();
+
+    const char *name;
+    switch (lteInfo->getFrameType()) {
+        case HARQPKT: name = "harqFeedback"; break;
+        case GRANTPKT: name = "harqFeedback-grant"; break;
+        case RACPKT: name = "rac"; break;
+        case D2DMODESWITCHPKT: name = "d2dModeSwitch"; break;
+        default: name = "airframe"; break;
+    }
+
+    LteAirFrame *frame = new LteAirFrame(name);
+
+    frame->encapsulate(check_and_cast<cPacket *>(msg));
+
+    // initialize frame fields
+    if (lteInfo->getFrameType() == D2DMODESWITCHPKT)
+        frame->setSchedulingPriority(-1);
+    else
+        frame->setSchedulingPriority(airFramePriority_);
+
+    // set transmission duration according to the numerology
+    NumerologyIndex numerologyIndex = binder_->getNumerologyIndexFromCarrierFreq(lteInfo->getCarrierFrequency());
+    double slotDuration = binder_->getSlotDurationFromNumerologyIndex(numerologyIndex);
+    frame->setDuration(slotDuration);
+
+    // set current position
+    lteInfo->setCoord(getRadioPosition());
+    lteInfo->setTxPower(txPower_);
+    frame->setControlInfo(lteInfo.get()->dup());
+
+    EV << "LtePhy: " << nodeTypeToA(nodeType_) << " with id " << nodeId_
+       << " sending message to the air channel. Dest=" << lteInfo->getDestId() << endl;
+    sendUnicast(frame);
+}
+
+void LtePhyBase::initializeChannelModel()
+{
+    primaryChannelModel_.reference(this, "channelModelModule", true);
+    primaryChannelModel_->setPhy(this);
+    GHz carrierFreq = primaryChannelModel_->getCarrierFrequency();
+    unsigned int numerologyIndex = primaryChannelModel_->getNumerologyIndex();
+    channelModel_[carrierFreq] = primaryChannelModel_;
+
+    if (nodeType_ == UE)
+        binder_->registerCarrierUe(carrierFreq, numerologyIndex, nodeId_);
+
+    int numChannelModels = primaryChannelModel_->getVectorSize();
+    for (int index = 1; index < numChannelModels; index++) {
+        LteChannelModel *chanModel = check_and_cast<LteChannelModel *>(primaryChannelModel_->getParentModule()->getSubmodule(primaryChannelModel_->getName(), index));
+        chanModel->setPhy(this);
+        GHz carrierFreq = chanModel->getCarrierFrequency();
+        unsigned int numerologyIndex = chanModel->getNumerologyIndex();
+        channelModel_[carrierFreq] = chanModel;
+        if (nodeType_ == UE)
+            binder_->registerCarrierUe(carrierFreq, numerologyIndex, nodeId_);
+    }
+}
+
+void LtePhyBase::updateDisplayString()
+{
+    char buf[80] = "";
+    if (numAirFrameReceived_ > 0)
+        sprintf(buf + strlen(buf), "af_ok:%d ", numAirFrameReceived_);
+    if (numAirFrameNotReceived_ > 0)
+        sprintf(buf + strlen(buf), "af_no:%d ", numAirFrameNotReceived_);
+    getDisplayString().setTagArg("t", 0, buf);
+}
+
+void LtePhyBase::sendBroadcast(LteAirFrame *airFrame)
+{
+    // Remove control info to allow parsim packing
+    if (airFrame->getControlInfo() != nullptr) {
+        UserControlInfo *userControlInfo = check_and_cast<UserControlInfo *>(airFrame->removeControlInfo());
+        airFrame->setAdditionalInfo(*userControlInfo);
+        delete userControlInfo;
+    }
+
+    // delegate the ChannelControl to send the airframe
+    sendToChannel(airFrame);
+}
+
+void LtePhyBase::sendMulticast(LteAirFrame *frame)
+{
+    UserControlInfo *ci = check_and_cast<UserControlInfo *>(frame->getControlInfo());
+
+    // get the group Id
+    MacNodeId groupId = ci->getPacketMulticastGroupId();
+    if (groupId == NODEID_NONE)
+        throw cRuntimeError("LtePhyBase::sendMulticast - Error. Group ID %d is not valid.", num(groupId));
+
+    // transfer control info into airframe fields
+    frame->setAdditionalInfo(*ci);
+    delete frame->removeControlInfo();
+
+    // send the frame to nodes belonging to the multicast group only
+        for (auto [destId, nodeInfo] : binder_->getNodeInfoMap()) {
+            // if the node in the list does not use the same LTE/NR technology of this PHY module, skip it
+            if (isNrUe(destId) != isNr_)
+                continue;
+            if (destId != nodeId_ && binder_->isInMulticastGroup(destId, groupId)) {
+                EV << NOW << " LtePhyBase::sendMulticast - node " << destId << " is in the multicast group" << endl;
+                // get a pointer to receiving module
+                cModule *receiver = nodeInfo.moduleRef;
+                LtePhyBase *recvPhy;
+                double dist;
+                if (enableMulticastD2DRangeCheck_) {
+                    // get the correct PHY layer module
+                    recvPhy = (isNrUe(destId)) ? check_and_cast<LtePhyBase *>(receiver->getSubmodule("cellularNic")->getSubmodule("nrPhy"))
+                                      : check_and_cast<LtePhyBase *>(receiver->getSubmodule("cellularNic")->getSubmodule("phy"));
+                    dist = recvPhy->getRadioPosition().distance(getRadioPosition());
+                    if (dist > multicastD2DRange_) {
+                        EV << NOW << " LtePhyBase::sendMulticast - node too far (" << dist << " > " << multicastD2DRange_ << ". skipping transmission" << endl;
+                        continue;
+                    }
+                }
+                EV << NOW << " LtePhyBase::sendMulticast - sending frame to node " << destId << endl;
+                // Create a duplicate frame before sending
+                LteAirFrame *frameToSend = frame->dup();
+
+                // nascTime / FRER: same DC-secondary direct-delivery override as
+                // sendUnicast() -- resolve cellularNic in C++ and target
+                // nrRadioIn2 directly, bypassing NED-interface gate-forwarding
+                // restrictions entirely.
+                bool isNrDest = isNrUe(destId);
+                bool delivered = false;
+                if (isNrDest && binder_->getDcSecondaryNextHop(destId) == nodeId_) {
+                    cModule *nic = receiver->getSubmodule("cellularNic");
+                    int secGate = nic ? nic->findGate("nrRadioIn2") : -1;
+                    if (secGate >= 0) {
+                        sendDirect(frameToSend, 0, frame->getDuration(), nic, secGate);
+                        delivered = true;
+                    }
+                }
+                if (!delivered)
+                    sendDirect(frameToSend, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrDest, destId));
+            }
+        }
+
+    // delete the original frame
+    delete frame;
+}
+
+void LtePhyBase::sendUnicast(LteAirFrame *frame)
+{
+    UserControlInfo *ci = check_and_cast<UserControlInfo *>(
+            frame->getControlInfo());
+    // dest MacNodeId from control info
+    MacNodeId dest = ci->getDestId();
+    cModule *receiver = binder_->getNodeModule(dest);
+    if (receiver == nullptr) {
+        // destination node has left the simulation
+        delete frame;
+        return;
+    }
+
+    // Remove control info to allow parsim packing
+    if (frame->getControlInfo() != nullptr) {
+        UserControlInfo *userControlInfo = check_and_cast<UserControlInfo *>(frame->removeControlInfo());
+        frame->setAdditionalInfo(*userControlInfo);
+        delete userControlInfo;
+    }
+    // nascTime / FRER: if this PHY is dest's registered DC secondary,
+    // deliver directly to cellularNic.nrRadioIn2 by resolving the
+    // submodule in C++ rather than via NED gate forwarding -- avoids
+    // needing nrRadioIn2/dualConnEnabled declared on ICellularNic, since
+    // C++ getSubmodule() isn't restricted to the "like" interface's
+    // declared contract the way NED connections are.
+    bool isNrDest = isNrUe(dest);
+    if (isNrDest && binder_->getDcSecondaryNextHop(dest) == nodeId_) {
+        cModule *nic = receiver->getSubmodule("cellularNic");
+        int secGate = nic ? nic->findGate("nrRadioIn2") : -1;
+        if (secGate >= 0) {
+            sendDirect(frame, 0, frame->getDuration(), nic, secGate);
+            return;
+        }
+    }
+    sendDirect(frame, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrDest, dest));
+}
+
+int LtePhyBase::getReceiverGateIndex(const cModule *receiver, bool isNr, MacNodeId dest) const
+{
+    // nascTime / FRER: if this PHY (the sender -- nodeId_ here is always
+    // the sender's own ID, since sendUnicast()/sendMulticast() are called
+    // on the transmitting PHY) is registered as dest's DC secondary,
+    // route to the receiver's dedicated secondary NR radio gate instead
+    // of the shared nrRadioIn. Falls through to normal behavior if the
+    // receiver has no such gate (e.g. a non-DC-capable UE), rather than
+    // hard-failing.
+    if (isNr && dest != NODEID_NONE && binder_->getDcSecondaryNextHop(dest) == nodeId_) {
+        int secGate = receiver->findGate("nrRadioIn2");
+        EV_INFO << "DEBUG_GATEROUTE sender_nodeId_=" << nodeId_ << " dest=" << dest
+                << " dcSecondaryNextHop=" << binder_->getDcSecondaryNextHop(dest)
+                << " secGate=" << secGate << " receiver=" << receiver->getFullPath() << endl;
+        if (secGate >= 0)
+            return secGate;
+    }
+
+    int gate = (isNr) ? receiver->findGate("nrRadioIn") : receiver->findGate("radioIn");
+    if (gate < 0) {
+        gate = receiver->findGate("lteRadioIn");
+        if (gate < 0) {
+            throw cRuntimeError("receiver \"%s\" has no suitable radio input gate",
+                    receiver->getFullPath().c_str());
+        }
+    }
+    return gate;
+}
+
+} //namespace

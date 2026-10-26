@@ -1,0 +1,404 @@
+{
+  "schemaVersion": "dnv/tc/1",
+  "meta": {
+    "name": "项目指标测试条件（可覆盖）",
+    "updatedAt": "2026-10-26",
+    "note": "defaults 是通用默认值；metrics.<id>.conditions 只写差异项，按键深合并覆盖 defaults。改条件只改这里，不改脚本。threshold 为项目书硬指标或 null（项目书未给数值，需标定）。calibration=uncalibrated 表示该条件尚未用实测标定。"
+  },
+  "defaults": {
+    "topology": {
+      "kind": "tsn5g",
+      "endpoints": 3,
+      "gnb": 1,
+      "upf": 1,
+      "tsnSwitch": 1,
+      "deployment": "lab"
+    },
+    "channel": {
+      "model": "NrChannelModel_3GPP38_901",
+      "fading": false,
+      "shadowing": false,
+      "thermalNoiseDbm": -104.5,
+      "numerologyIndex": 0,
+      "numerologyNote": "slot = 2^-idx / 1000 s；idx0=1ms, idx1=0.5ms, idx2=0.25ms, idx3=0.125ms, idx4=62.5us。经 ComponentCarrier.numerologyIndex 配置"
+    },
+    "traffic": {
+      "classes": ["XR", "INDUSTRIAL_CONTROL", "BEST_EFFORT"],
+      "loadScale": 1.0,
+      "backgroundLoadPct": 0,
+      "flowsPerClass": 1
+    },
+    "scheduler": {
+      "mac": "QOS_PF",
+      "frer": "off",
+      "tsnShaping": "none",
+      "tsnGateControl": "none"
+    },
+    "scenario": {
+      "durationS": 10,
+      "warmupS": 1,
+      "seeds": [1, 2, 3, 4, 5],
+      "repetitions": 1
+    },
+    "statistics": {
+      "quantileMethod": "linear",
+      "primaryQuantile": 0.99,
+      "confidence": 0.95,
+      "bootstrapSamples": 1000
+    }
+  },
+  "metrics": {
+    "A1": {
+      "title": "多负载与干扰下的时延/抖动可控性",
+      "sourceText": "评估空口在多负载与干扰环境下的时延与抖动可控性",
+      "threshold": { "maxMs": null, "maxJitterUs": null },
+      "unit": "ms",
+      "direction": "qualitative",
+      "measurePoint": "应用层（gPTP 时基）",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "负载从 1x 到 5x 扫描，时延/抖动随负载的斜率有界且可复现",
+      "conditions": {
+        "traffic": { "loadScale": [1.0, 2.0, 3.0, 5.0] },
+        "channel": { "thermalNoiseDbm": [-104.5, -98.0, -95.0] }
+      }
+    },
+    "A2": {
+      "title": "单向传输时延稳定性与精度",
+      "sourceText": "测试单向传输的时延稳定性与精度",
+      "threshold": { "maxMs": 4.0, "quantile": 0.99 },
+      "unit": "ms",
+      "direction": "upper_bound",
+      "measurePoint": "应用层（gPTP 时基）",
+      "simulatable": "partial",
+      "simulatableReason": "仿真可得真值，但单向精度依赖仿真器时钟粒度；真机需硬件时间戳",
+      "calibration": "uncalibrated",
+      "oracle": "p99 ≤ maxMs 且 p99.9 与 p99 的差距可解释",
+      "conditions": {
+        "scenario": { "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }
+      }
+    },
+    "A3": {
+      "title": "微秒级时频资源预留与即时分配",
+      "sourceText": "考察基站调度器在微秒级时间尺度下对 HRLLC 等高优先级业务的时频资源预留与即时分配能力",
+      "threshold": { "maxSchedulingPeriodUs": 125 },
+      "unit": "us",
+      "direction": "upper_bound",
+      "measurePoint": "MAC 调度日志（ttiPeriod_）",
+      "simulatable": "partial",
+      "simulatableReason": "Simu5G 的 TTI = 2^-numerologyIndex/1000 s，默认 1ms；需将 numerologyIndex 配到 3(0.125ms) 或 4(62.5us) 才能进入微秒级",
+      "calibration": "uncalibrated",
+      "oracle": "同周期内 HRLLC 包的调度等待 ≤ 1 个 slot",
+      "conditions": {
+        "channel": { "numerologyIndex": 3 }
+      }
+    },
+    "A4": {
+      "title": "高可靠传输（功率控制 + 冗余）",
+      "sourceText": "通过功率控制及冗余传输等技术手段，评估系统实现可靠度≥99.99% 目标的能力",
+      "threshold": { "minDeliveryRatio": 0.9999 },
+      "unit": "ratio",
+      "direction": "lower_bound",
+      "measurePoint": "应用层收发计数",
+      "simulatable": "yes",
+      "simulatableReason": "需 ≥1e6 包样本才能对 1e-4 有统计意义（现有 5 seed × 8000 帧差约 25 倍）",
+      "calibration": "uncalibrated",
+      "oracle": "Wilson 区间下界 ≥ threshold",
+      "conditions": {
+        "scheduler": { "frer": "on" },
+        "traffic": { "loadScale": 1.0 },
+        "scenario": { "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "durationS": 60 }
+      }
+    },
+    "A5": {
+      "title": "多流协同与空口同步",
+      "sourceText": "在沉浸式多路数据流协同场景下，测量时间同步精度与带宽开销",
+      "threshold": { "maxSyncErrorUs": null, "maxBandwidthOverheadRatio": 0.10 },
+      "unit": "us",
+      "direction": "upper_bound",
+      "measurePoint": "多流端点到达时刻",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "skew(group,k) 的上界可复现，且开销比 ≤ 10%",
+      "conditions": {
+        "traffic": { "flowsPerClass": 3 },
+        "scheduler": { "tsnShaping": "none" }
+      }
+    },
+    "A6": {
+      "title": "空口与承载网协同信令",
+      "sourceText": "评估基站状态信息的实时上报与控制平面反馈能力",
+      "threshold": { "maxReportPeriodMs": 100, "maxControlResponseMs": 10 },
+      "unit": "ms",
+      "direction": "upper_bound",
+      "measurePoint": "控制器接口",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "上报周期达成率 100%，响应时延四分量均有测量值",
+      "conditions": {
+        "scenario": { "durationS": 30 }
+      }
+    },
+    "B1": {
+      "title": "承载设备精密时钟兼容性与同步精度",
+      "sourceText": "评估承载设备对精密时钟协议的兼容性及其同步精度",
+      "threshold": { "maxOffsetNs": null },
+      "unit": "ns",
+      "direction": "upper_bound",
+      "measurePoint": "gPTP 主从时钟偏差",
+      "simulatable": "partial",
+      "simulatableReason": "仿真有真值但无晶振漂移与温漂，绝对值不可当真机精度",
+      "calibration": "uncalibrated",
+      "oracle": "偏差 p99 可复现；作为真机对照的相对趋势成立",
+      "conditions": {
+        "topology": { "tsnSwitch": 2 },
+        "scenario": { "durationS": 60 }
+      }
+    },
+    "B2": {
+      "title": "TSN 固定传输窗口保障",
+      "sourceText": "验证 TSN 机制为确定性流量预留固定传输窗口的保障能力",
+      "threshold": { "minGateHitRatio": 1.0 },
+      "unit": "ratio",
+      "direction": "lower_bound",
+      "measurePoint": "TSN 出口门控",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "门控命中率 = 1.0；不可行 GCL 必须被可行性检查拦下",
+      "conditions": {
+        "scheduler": { "tsnGateControl": "on" }
+      }
+    },
+    "B3": {
+      "title": "多跳端到端时延与抖动",
+      "sourceText": "在多跳网络环境中，测量确定性流量的端到端时延与抖动性能",
+      "threshold": { "maxMs": 4.0, "maxJitterUs": 100 },
+      "unit": "ms",
+      "direction": "upper_bound",
+      "measurePoint": "端到端应用层",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "p99 ≤ 4ms 且 PDV p99 ≤ 100us；需标注是 p50 还是 p99",
+      "conditions": {
+        "topology": { "tsnSwitch": 3 },
+        "scheduler": { "tsnGateControl": "on" }
+      }
+    },
+    "B4": {
+      "title": "跨域调度时序对齐（无排队跨域）",
+      "sourceText": "验证承载网与无线、核心网之间的调度时序对齐能力，确保数据无排队跨域传输",
+      "threshold": { "maxAlignmentErrorUs": null },
+      "unit": "us",
+      "direction": "upper_bound",
+      "measurePoint": "域边界两侧时间戳之差",
+      "simulatable": "partial",
+      "simulatableReason": "需两侧同处一个 802.1AS 域；跨域无排队等价于边界排队时延≈0",
+      "calibration": "uncalibrated",
+      "oracle": "边界排队时延 p99 ≤ 1 个门控周期",
+      "conditions": {
+        "scheduler": { "tsnGateControl": "on", "mac": "QOS_PF" },
+        "channel": { "fading": true, "shadowing": true, "thermalNoiseDbm": -95.0 }
+      }
+    },
+    "B5": {
+      "title": "保护倒换与单点故障对抗",
+      "sourceText": "验证承载网的保护倒换机制，实现单点链路故障对抗，提升可靠性至 99.99%",
+      "threshold": { "maxOutageMs": null, "minDeliveryRatio": 0.9999 },
+      "unit": "ratio",
+      "direction": "lower_bound",
+      "measurePoint": "故障注入点两侧",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "注入单链路中断后，中断时长可复现且 ≤ 契约；送达率仍 ≥ 99.99%",
+      "conditions": {
+        "scheduler": { "frer": "on" },
+        "faultInjection": { "kind": "linkDown", "atS": 5.0, "durationS": 1.0 }
+      }
+    },
+    "C1": {
+      "title": "用户面确定性转发",
+      "sourceText": "验证核心网用户面在数据转发层面的时延与抖动控制能力",
+      "threshold": { "maxMs": null, "maxJitterUs": null },
+      "unit": "ms",
+      "direction": "upper_bound",
+      "measurePoint": "UPF 前后",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "UPF 驻留时延 p99 稳定，且随负载斜率有界",
+      "conditions": {
+        "traffic": { "loadScale": [1.0, 2.0] }
+      }
+    },
+    "C2": {
+      "title": "业务流识别精度与策略响应速度",
+      "sourceText": "评估控制面对 HRLLC 等关键业务流的识别精度与响应速度，及专属策略下发能力",
+      "threshold": { "minClassifyAccuracy": 1.0, "maxPolicyLatencyMs": 10 },
+      "unit": "ratio",
+      "direction": "lower_bound",
+      "measurePoint": "分类器 + 策略面",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "混合流分类准确率 100%；无契约流必须出现在 UNCLASSIFIED 计数中",
+      "conditions": {
+        "traffic": { "classes": ["XR", "INDUSTRIAL_CONTROL", "BEST_EFFORT", "UNCLASSIFIED_TEST"] }
+      }
+    },
+    "C3": {
+      "title": "切片与资源隔离（拥塞下稳定）",
+      "sourceText": "验证网络切片与资源隔离能力，评估 HRLLC 硬隔离专用切片在背景流量拥塞条件下的稳定性",
+      "threshold": { "maxP99DegradationRatio": 0.10, "minBandwidth": 2.0 },
+      "unit": "ratio",
+      "direction": "upper_bound",
+      "measurePoint": "切片边界",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "背景流量从 0% 到 80% 时，HRLLC 切片 p99 退化 ≤ 10%",
+      "conditions": {
+        "traffic": { "backgroundLoadPct": [0, 40, 80] }
+      }
+    },
+    "C4": {
+      "title": "多维指标 QoS 优化",
+      "sourceText": "验证核心网能否基于全局视图动态调整路由与带宽参数，实现端到端服务质量的自适应优化",
+      "threshold": { "maxOptimizationTimeS": 10 },
+      "unit": "s",
+      "direction": "upper_bound",
+      "measurePoint": "控制器",
+      "simulatable": "partial",
+      "simulatableReason": "收敛时间可测；优化质量取决于算法，需与启发式基线对比",
+      "calibration": "uncalibrated",
+      "oracle": "从触发到策略生效 ≤ 10s，且多维指标至少一项改善、无新增违约",
+      "conditions": {
+        "scenario": { "durationS": 60 }
+      },
+      "relatedMetrics": ["K4b"]
+    },
+    "K2a": {
+      "title": "单台设备确定性转发抖动",
+      "sourceText": "单台设备抖动不超过 5us",
+      "threshold": { "maxJitterUs": 5 },
+      "unit": "us",
+      "direction": "upper_bound",
+      "measurePoint": "设备入口/出口时间戳",
+      "simulatable": "no",
+      "simulatableReason": "离散事件仿真无硬件排队抖动与时钟抖动，只能给理论上界，不能作为达标证据",
+      "calibration": "uncalibrated",
+      "oracle": "真机硬件时间戳测量",
+      "conditions": {
+        "deployment": "testbed"
+      }
+    },
+    "K2b": {
+      "title": "局域场景时延抖动",
+      "sourceText": "局域场景下时延抖动不超过 100us",
+      "threshold": { "maxJitterUs": 100 },
+      "unit": "us",
+      "direction": "upper_bound",
+      "measurePoint": "端到端（局域拓扑）",
+      "simulatable": "partial",
+      "simulatableReason": "抖动下限受 TTI 支配：numerologyIndex=0 时结构下限约 1ms 量级，不达标；需 idx≥3(0.125ms) 并只用 TSN 段",
+      "calibration": "uncalibrated",
+      "oracle": "PDV p99 ≤ 100us，且与 TTI/门控周期关系可解释",
+      "conditions": {
+        "channel": { "numerologyIndex": 3 },
+        "scheduler": { "tsnGateControl": "on" },
+        "topology": { "tsnSwitch": 2 }
+      }
+    },
+    "K2c": {
+      "title": "确定性转发保障带宽",
+      "sourceText": "保障带宽不低于 2Mbps",
+      "threshold": { "minBandwidthMbps": 2 },
+      "unit": "Mbps",
+      "direction": "lower_bound",
+      "measurePoint": "业务出口",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "契约带宽达成率 ≥ 100%，超发时整形后仍 ≥ 2Mbps",
+      "conditions": {
+        "traffic": { "loadScale": [1.0, 1.2] },
+        "scheduler": { "tsnShaping": "on" }
+      }
+    },
+    "K3a": {
+      "title": "多流协同单向时延",
+      "sourceText": "局域场景下网络单向时延不超过 4ms",
+      "threshold": { "maxMs": 4.0, "quantile": 0.5 },
+      "unit": "ms",
+      "direction": "upper_bound",
+      "measurePoint": "应用层（gPTP 时基）",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "p50 ≤ 4ms；p99 单独报告（现有 FRER 三配置 p99 6.74ms，不达标）",
+      "conditions": {
+        "scheduler": { "mac": "MAXCI" },
+        "scenario": { "durationS": 10 }
+      },
+      "relatedMetrics": ["A2"]
+    },
+    "K3b": {
+      "title": "多流协同时延抖动",
+      "sourceText": "时延抖动不超过 100us",
+      "threshold": { "maxJitterUs": 100 },
+      "unit": "us",
+      "direction": "upper_bound",
+      "measurePoint": "应用层",
+      "simulatable": "partial",
+      "simulatableReason": "同 K2b：受 TTI 支配，需 numerologyIndex ≥ 3",
+      "calibration": "uncalibrated",
+      "oracle": "PDV p99 ≤ 100us",
+      "conditions": {
+        "channel": { "numerologyIndex": 3 }
+      }
+    },
+    "K3c": {
+      "title": "多流协同可靠度",
+      "sourceText": "可靠度不低于 99.99%",
+      "threshold": { "minDeliveryRatio": 0.9999 },
+      "unit": "ratio",
+      "direction": "lower_bound",
+      "measurePoint": "应用层收发计数",
+      "simulatable": "yes",
+      "simulatableReason": "需 ≥1e6 包/配置；现有 4e4 差约 25 倍",
+      "calibration": "uncalibrated",
+      "oracle": "Wilson 区间下界 ≥ 99.99%，并注明包级口径",
+      "conditions": {
+        "scheduler": { "frer": "on" },
+        "scenario": { "durationS": 60, "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }
+      },
+      "relatedMetrics": ["A4"]
+    },
+    "K3d": {
+      "title": "多流同步引入的带宽损耗",
+      "sourceText": "多流同步引入的带宽损耗不超过 10%",
+      "threshold": { "maxOverheadRatio": 0.10 },
+      "unit": "ratio",
+      "direction": "upper_bound",
+      "measurePoint": "同步报文 + 冗余副本 + 门控开销 / 业务有效带宽",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "分子分母口径固定后，比值 ≤ 10%",
+      "conditions": {
+        "traffic": { "flowsPerClass": 3 },
+        "scheduler": { "frer": "on" }
+      },
+      "relatedMetrics": ["A5"]
+    },
+    "K4b": {
+      "title": "端到端资源优化时间",
+      "sourceText": "支持端到端资源优化时间不超过 10s",
+      "threshold": { "maxOptimizationTimeS": 10 },
+      "unit": "s",
+      "direction": "upper_bound",
+      "measurePoint": "控制器四分量：采样/计算/下发/生效",
+      "simulatable": "yes",
+      "calibration": "uncalibrated",
+      "oracle": "四分量之和 ≤ 10s；CP-2 周期应 ≤ 2s 留余量",
+      "conditions": {
+        "controllers": { "wan": { "enabled": true, "periodMs": 500 } },
+        "scenario": { "durationS": 60 }
+      },
+      "relatedMetrics": ["C4"]
+    }
+  }
+}

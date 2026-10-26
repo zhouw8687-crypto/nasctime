@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+#
+# nasctime_dbg -- run a nascTime simulation with the debug shared library.
+# Locates the dependencies from the NASCTIME_ROOT / SIMU5G_ROOT / INET_ROOT
+# environment variables (exported by sourcing each project's own setenv).
+
+NASCTIME_ROOT=${NASCTIME_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
+NASCTIME_SRC=$NASCTIME_ROOT/src
+COMMAND_LINE_OPTIONS="-n $NASCTIME_SRC:$NASCTIME_ROOT/tests:$NASCTIME_ROOT/simulations:$SIMU5G_ROOT/src:$INET_ROOT/src"
+
+if [ -f $NASCTIME_SRC/libnasctime_dbg.so -o -f $NASCTIME_SRC/libnasctime_dbg.dll -o -f $NASCTIME_SRC/libnasctime_dbg.dylib ]; then
+  opp_run_dbg -l $NASCTIME_SRC/nasctime $COMMAND_LINE_OPTIONS "$@"
+elif [ -x $NASCTIME_SRC/nasctime_dbg -o -x $NASCTIME_SRC/nasctime_dbg.exe ]; then
+  $NASCTIME_SRC/nasctime_dbg $COMMAND_LINE_OPTIONS "$@"
+else
+  echo "nasctime_dbg: libnasctime_dbg.so not found in $NASCTIME_SRC -- build nascTime first (make MODE=debug)" >&2
+  exit 1
+fi

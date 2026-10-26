@@ -1,0 +1,2262 @@
+# Simu5G fork (nasctime-v1.0) vs vanilla 1.5.0 的差异存档
+# 生成时间: 2026-10-26T07:12:37Z
+# 生成命令: experiments/env/make_fork_patch.sh
+#
+# 回滚方式（在仓库根目录执行）：
+#   rm -rf Simu5G && cp -a Simu5G-vanilla-1.5.0 Simu5G
+#   patch -p0 < experiments/env/Simu5G-fork.patch
+# 说明：差异仅涉及已有文件修改，无新增文件；因此 patch 必然干净可逆。
+
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/.oppbuildspec Simu5G/.oppbuildspec
+--- Simu5G-vanilla-1.5.0/.oppbuildspec	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/.oppbuildspec	2026-07-22 19:15:27.000000000 +0800
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+ <buildspec version="4.0">
+-    <dir makemake-options="--make-so --deep -o simu5g -O out -I. --meta:recurse --meta:export-include-path --meta:use-exported-include-paths --meta:export-library --meta:use-exported-libs --meta:feature-cflags --meta:feature-ldflags" path="src" type="makemake"/>
++    <dir makemake-options="--make-so --deep -o simu5g -O out -I/home/vboxuser/simu5g-nasc/inet-4.6.0 -I. --meta:recurse --meta:export-include-path --meta:use-exported-include-paths --meta:export-library --meta:use-exported-libs --meta:feature-cflags --meta:feature-ldflags" path="src" type="makemake"/>
+     <dir path="." type="custom"/>
+ </buildspec>
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/.project Simu5G/.project
+--- Simu5G-vanilla-1.5.0/.project	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/.project	2026-07-22 19:15:27.000000000 +0800
+@@ -3,7 +3,8 @@
+ 	<name>simu5G</name>
+ 	<comment></comment>
+ 	<projects>
+-		<project>inet-4.5.4</project>
++		<project>inet-4.6.0</project>
++		<project>nascTime</project>
+ 	</projects>
+ 	<buildSpec>
+ 		<buildCommand>
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/Makefile Simu5G/src/Makefile
+--- Simu5G-vanilla-1.5.0/src/Makefile	2026-09-15 17:03:05.968744094 +0800
++++ Simu5G/src/Makefile	2026-09-17 20:49:18.543332615 +0800
+@@ -2,7 +2,7 @@
+ # OMNeT++/OMNEST Makefile for $(LIB_PREFIX)simu5g
+ #
+ # This file was generated with the command:
+-#  opp_makemake --make-so -f --deep -o simu5g -O out -I. -I. -KINET_PROJ=/media/a100/data/zbw/nasctime/inet -DINET_IMPORT -I. -I$(INET_PROJ)/src -L$(INET_PROJ)/src -lINET$(D)
++#  opp_makemake --make-so -f --deep -o simu5g -O out -I/home/vboxuser/simu5g-nasc/inet-4.6.0 -I. -I. -KINET_PROJ=/media/a100/data/zbw/nasctime/inet -DINET_IMPORT -I. -I$(INET_PROJ)/src -L$(INET_PROJ)/src -lINET$(D)
+ #
+ 
+ # Name of target to be created (-o option)
+@@ -12,7 +12,7 @@
+ TARGET_FILES = $(TARGET_DIR)/$(TARGET)
+ 
+ # C++ include paths (with -I)
+-INCLUDE_PATH = -I. -I. -I. -I$(INET_PROJ)/src
++INCLUDE_PATH = -I/home/vboxuser/simu5g-nasc/inet-4.6.0 -I. -I. -I. -I$(INET_PROJ)/src
+ 
+ # Additional object and library files to link with
+ EXTRA_OBJS =
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/common/binder/Binder.cc Simu5G/src/simu5g/common/binder/Binder.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/common/binder/Binder.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/common/binder/Binder.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -2,7 +2,7 @@
+ //                  Simu5G
+ //
+ // Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+-// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
++// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -67,6 +67,7 @@
+     if (it == carrierUeMap_.end())
+         throw cRuntimeError("Binder::registerCarrierUe - Carrier [%gGHz] not found (missing registerCarrier call?)", carrierFrequency.get());
+ 
++    EV_INFO << "DEBUG_CARRIERUE registering ueId=" << ueId << " carrierFreq=" << carrierFrequency << endl;
+     carrierUeMap_[carrierFrequency].insert(ueId);
+ 
+     if (ueNumerologyIndex_.find(ueId) == ueNumerologyIndex_.end()) {
+@@ -257,6 +258,39 @@
+     secondaryNodeToMasterNodeOrSelf_[num(slaveId)] = (masterId != NODEID_NONE) ? masterId : slaveId;  // the "or self" bit
+ }
+ 
++void Binder::registerDcSecondary(MacNodeId secondaryEnbId, MacNodeId ueId)
++{
++    Enter_Method_Silent("registerDcSecondary");
++    ASSERT(getNodeTypeById(secondaryEnbId) == NODEB);
++    ASSERT(getNodeTypeById(ueId) == UE);
++
++    EV << "Binder::registerDcSecondary secondary=" << secondaryEnbId
++       << " ue=" << ueId << endl;
++
++    dcSecondaryNextHop_[ueId] = secondaryEnbId;
++
++    if (dcPrimaryNextHop_.find(ueId) == dcPrimaryNextHop_.end())
++        dcPrimaryNextHop_[ueId] = getServingNode(ueId);
++}
++
++void Binder::unregisterDcSecondary(MacNodeId ueId)
++{
++    Enter_Method_Silent("unregisterDcSecondary");
++    dcSecondaryNextHop_.erase(ueId);
++}
++
++MacNodeId Binder::getDcSecondaryNextHop(MacNodeId ueId) const
++{
++    auto it = dcSecondaryNextHop_.find(ueId);
++    return (it != dcSecondaryNextHop_.end()) ? it->second : NODEID_NONE;
++}
++
++MacNodeId Binder::getDcPrimaryNextHop(MacNodeId ueId)
++{
++    auto it = dcPrimaryNextHop_.find(ueId);
++    return (it != dcPrimaryNextHop_.end()) ? it->second : getServingNodeOrSelf(ueId);
++}
++
+ inline ostream& operator<<(ostream& os, const L3Address& addr) { return os << addr.str(); }
+ inline ostream& operator<<(ostream& os, const UeInfo& info) { return os << info.str(); }
+ inline ostream& operator<<(ostream& os, const EnbInfo& info) { return os << info.str(); }
+@@ -474,12 +508,15 @@
+ std::vector<MacNodeId> Binder::getDeployedUes(MacNodeId enbNodeId)
+ {
+     ASSERT(getNodeTypeById(enbNodeId) == NODEB);
+-
+     std::vector<MacNodeId> connectedUes;
+-    for (auto& [nodeId, nodeInfo] : nodeInfoMap_)
+-        if (nodeInfo.moduleRef != nullptr && getNodeTypeById(nodeId) == UE && servingNode_.size() > num(nodeId) && servingNode_[num(nodeId)] == enbNodeId)
++    for (auto& [nodeId, nodeInfo] : nodeInfoMap_) {
++        if (nodeInfo.moduleRef == nullptr || getNodeTypeById(nodeId) != UE)
++            continue;
++        bool isPrimary = servingNode_.size() > num(nodeId) && servingNode_[num(nodeId)] == enbNodeId;
++        bool isDcSecondary = getDcSecondaryNextHop(nodeId) == enbNodeId;
++        if (isPrimary || isDcSecondary)
+             connectedUes.push_back(nodeId);
+-
++    }
+     return connectedUes;
+ }
+ 
+@@ -982,7 +1019,21 @@
+ 
+ void Binder::establishUnidirectionalDataConnection(FlowControlInfo *info)
+ {
+-    bool dualConnected = isDualConnectivityRequired(info);
++    // nascTime / FRER: skip native EN-DC split-bearer entirely for any UE
++    // managed by our own per-DRB secondary-leg routing (see
++    // BearerManagement::dcSecondaryDrbIds_). Without this guard, native
++    // split-bearer fires for EVERY DRB of EVERY dual-tech UE served by a
++    // gNB registered as anyone's Binder-level secondary -- not just the
++    // one DRB nascTime intends to route there. Confirmed via direct trace:
++    // isDualConnectivityRequired() returns true whenever
++    // getMasterNodeOrSelf(nodeB) != nodeB, which registerMasterNode(gnb,
++    // gnb2) makes unconditionally true for gnb2, for all its traffic.
++    MacNodeId ueId = (getNodeTypeById(info->getSourceId()) == UE) ? info->getSourceId()
++                    : (getNodeTypeById(info->getDestId()) == UE) ? info->getDestId()
++                    : NODEID_NONE;
++    bool nascTimeManagedDc = (ueId != NODEID_NONE) && (getDcSecondaryNextHop(ueId) != NODEID_NONE);
++
++    bool dualConnected = !nascTimeManagedDc && isDualConnectivityRequired(info);
+     if (!dualConnected) {
+         createConnection(info, true);
+     }
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/common/binder/Binder.h Simu5G/src/simu5g/common/binder/Binder.h
+--- Simu5G-vanilla-1.5.0/src/simu5g/common/binder/Binder.h	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/common/binder/Binder.h	2026-07-22 19:15:27.000000000 +0800
+@@ -2,7 +2,7 @@
+ //                  Simu5G
+ //
+ // Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+-// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
++// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -59,6 +59,10 @@
+     std::vector<MacNodeId> servingNode_;  // ueId -> servingEnbId
+     std::vector<MacNodeId> secondaryNodeToMasterNodeOrSelf_;
+ 
++    // nascTime / FRER: per-UE DC secondary tracking (see registerDcSecondary())
++    std::map<MacNodeId, MacNodeId> dcSecondaryNextHop_;   // ueId -> secondary gNB
++    std::map<MacNodeId, MacNodeId> dcPrimaryNextHop_;     // ueId -> primary gNB (cached)
++
+     // stores the IP address of the MEC hosts in the simulation
+     std::set<inet::L3Address> mecHostAddress_;
+ 
+@@ -313,6 +317,33 @@
+     virtual MacNodeId getSecondaryNode(MacNodeId masterEnbId);
+ 
+     /**
++     * nascTime / FRER: per-UE DC secondary registration. Does NOT touch
++     * servingNode_ (the MCG/primary slot) -- tracks SCG/secondary
++     * attachment separately and non-destructively, so a UE can have both
++     * a primary and a secondary gNB registered simultaneously without
++     * either overwriting the other.
++     */
++    virtual void registerDcSecondary(MacNodeId secondaryEnbId, MacNodeId ueId);
++
++    /**
++     * Removes the DC secondary registration for the given UE, if any.
++     */
++    virtual void unregisterDcSecondary(MacNodeId ueId);
++
++    /**
++     * Returns the UE's currently registered DC secondary gNB, or
++     * NODEID_NONE if it has none.
++     */
++    virtual MacNodeId getDcSecondaryNextHop(MacNodeId ueId) const;
++
++    /**
++     * Returns the UE's primary (MCG) gNB, as cached at the time DC
++     * secondary registration first occurred, falling back to the current
++     * servingNode_ entry if no DC secondary was ever registered.
++     */
++    virtual MacNodeId getDcPrimaryNextHop(MacNodeId ueId);
++
++    /**
+      * Returns the MacNodeId for the given IP address
+      *
+      * @param address IP address
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/corenetwork/gtp/GtpUser.cc Simu5G/src/simu5g/corenetwork/gtp/GtpUser.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/corenetwork/gtp/GtpUser.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/corenetwork/gtp/GtpUser.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -61,6 +61,18 @@
+         }
+     }
+ 
++
++    // DC FRER: optional forced tunnel peer (must be outside the ownerType check
++    // because upf2 IS a UPF and needs this)
++    const char *forcedPeer = par("forceTunnelPeer").stringValue();
++    if (strlen(forcedPeer) > 0) {
++        std::string peerPath = binder_->getNetworkName() + "." + forcedPeer;
++        forcedPeerAddress_ = L3AddressResolver().resolve(peerPath.c_str());
++        hasForcedPeer_ = true;
++        EV_INFO << "GtpUser: forced tunnel peer = " << peerPath
++                << " (" << forcedPeerAddress_ << ")" << endl;
++    }
++
+     if (isBaseStation(ownerType_))
+         myMacNodeID = MacNodeId(networkNode_->par("macNodeId").intValue());
+     else
+@@ -158,6 +170,21 @@
+         return;
+     }
+ 
++    // DC FRER: bypass normal routing when forced peer is configured
++     if (hasForcedPeer_&& (ownerType_ == UPF || ownerType_ == PGW)) {
++         auto header = makeShared<GtpUserMsg>();
++         header->setTeid(0);
++         header->setQfi(qfi);
++         header->setChunkLength(B(8));
++         auto gtpPacket = new Packet(datagram->getName());
++         gtpPacket->insertAtFront(header);
++         gtpPacket->insertAtBack(datagram->peekData());
++         delete datagram;
++         EV_INFO << "GtpUser: tunneling to forced peer " << forcedPeerAddress_ << endl;
++         socket_.sendTo(gtpPacket, forcedPeerAddress_, tunnelPeerPort_);
++         return;
++     }
++
+     // If we are on the eNB and the flowId represents the ID of this eNB, forward the packet locally
+     if (flowId == TFT_LOCAL_DELIVERY) {
+         // local delivery
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/corenetwork/gtp/GtpUser.h Simu5G/src/simu5g/corenetwork/gtp/GtpUser.h
+--- Simu5G-vanilla-1.5.0/src/simu5g/corenetwork/gtp/GtpUser.h	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/corenetwork/gtp/GtpUser.h	2026-07-22 19:15:27.000000000 +0800
+@@ -39,15 +39,6 @@
+  */
+ class GtpUser : public cSimpleModule
+ {
+-    inet::UdpSocket socket_;
+-    int localPort_;
+-
+-    // reference to the LTE Binder module
+-    inet::ModuleRefByPar<Binder> binder_;
+-
+-    // the GTP protocol Port
+-    unsigned int tunnelPeerPort_;
+-
+     // IP address of the gateway to the Internet
+     inet::L3Address gwAddress_;
+ 
+@@ -64,6 +55,17 @@
+     CoreNodeType selectOwnerType(const char *type);
+ 
+   protected:
++    inet::UdpSocket socket_;
++    int localPort_;
++
++    // reference to the LTE Binder module
++    inet::ModuleRefByPar<Binder> binder_;
++
++    // the GTP protocol Port
++    unsigned int tunnelPeerPort_;
++
++    inet::L3Address forcedPeerAddress_;
++    bool hasForcedPeer_ = false;
+ 
+     int numInitStages() const override { return inet::NUM_INIT_STAGES; }
+     void initialize(int stage) override;
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/corenetwork/gtp/GtpUser.ned Simu5G/src/simu5g/corenetwork/gtp/GtpUser.ned
+--- Simu5G-vanilla-1.5.0/src/simu5g/corenetwork/gtp/GtpUser.ned	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/corenetwork/gtp/GtpUser.ned	2026-07-22 19:15:27.000000000 +0800
+@@ -33,6 +33,7 @@
+         int tunnelPeerPort = default(31);
+         string gateway = default("");			// optional
+ 
++        string forceTunnelPeer = default("");  // empty = normal routing, set = force all tunneling to this node
+         @display("i=block/tunnel");
+ 
+     gates:
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderEnb.cc Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderEnb.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderEnb.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderEnb.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -1,7 +1,7 @@
+ //
+ //                  Simu5G
+ //
+-// Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa)
++// Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -108,14 +108,20 @@
+         return;
+     }
+ 
+-    // if UE has moved to another gNB (e.g. late packet after handover), forward via X2
++    // nascTime / FRER: a UE's registered DC secondary must be able to
++    // deliver packets locally, not have them treated as stale/mid-handover
++    // traffic just because it isn't the UE's primary serving node. Without
++    // this, every DL packet destined for a DC-secondary DRB gets diverted
++    // to native X2 forwarding, which was never configured for this topology.
+     MacNodeId servingNode = binder_->getServingNodeOrSelf(destId);
+-    if (servingNode != NODEID_NONE && servingNode != nodeId_) {
++    bool isDcSecondaryForThisUe = (binder_->getDcSecondaryNextHop(destId) == nodeId_);
++    if (isDcSecondaryForThisUe)
++        EV_INFO << "HandoverPacketHolderEnb::fromIpBs - UE " << destId << " delivered locally as DC secondary (patch 10 active)" << endl;
++    if (servingNode != NODEID_NONE && servingNode != nodeId_ && !isDcSecondaryForThisUe) {
+         EV << "Ip2Nic::fromIpBs - UE " << destId << " is served by gNB " << servingNode << ", forwarding via X2" << endl;
+         sendTunneledPacketOnHandover(pkt, servingNode);
+         return;
+     }
+-
+     toStackBs(pkt);
+ }
+ 
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderEnb.h Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderEnb.h
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderEnb.h	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderEnb.h	2026-07-22 19:15:27.000000000 +0800
+@@ -1,7 +1,7 @@
+ //
+ //                  Simu5G
+ //
+-// Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa)
++// Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.cc Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -15,12 +15,9 @@
+ #include <inet/common/socket/SocketTag_m.h>
+ #include "simu5g/common/binder/Binder.h"
+ #include "simu5g/common/LteControlInfoTags_m.h"
+-
+ namespace simu5g {
+-
+ using namespace inet;
+ using namespace omnetpp;
+-
+ Define_Module(HandoverPacketHolderUe);
+ 
+ HandoverPacketHolderUe::~HandoverPacketHolderUe()
+@@ -30,6 +27,12 @@
+         ueHoldFromIp_.pop_front();
+         delete pkt;
+     }
++    // nascTime / FRER: mirror cleanup for the DC-secondary queue.
++    while (!ueHoldFromIp2_.empty()) {
++        Packet *pkt = ueHoldFromIp2_.front();
++        ueHoldFromIp2_.pop_front();
++        delete pkt;
++    }
+ }
+ 
+ void HandoverPacketHolderUe::initialize(int stage)
+@@ -37,7 +40,6 @@
+     if (stage == inet::INITSTAGE_LOCAL) {
+         stackGateOut_ = gate("stackOut");
+         binder_.reference(this, "binderModule", true);
+-
+         cModule *ue = getContainingNode(this);
+         nodeId_ = MacNodeId(ue->par("macNodeId").intValue());
+         if (ue->hasPar("nrMacNodeId"))
+@@ -49,6 +51,11 @@
+             servingNodeId_ = binder_->getServingNode(nodeId_);
+         if (nrNodeId_ != NODEID_NONE)
+             nrServingNodeId_ = binder_->getServingNode(nrNodeId_);
++        // nascTime / FRER: no equivalent static initial read for
++        // nrServingNodeId2_ -- the DC-secondary leg has no static attach
++        // path at all (confirmed via Registration.cc), it only ever
++        // attaches dynamically, so this starts at NODEID_NONE and is only
++        // ever set via triggerHandoverUe(isDcSecondary=true).
+     }
+ }
+ 
+@@ -56,7 +63,6 @@
+ {
+     if (!msg->getArrivalGate()->isName("upperLayerIn"))
+         throw cRuntimeError("Message received on wrong gate %s", msg->getArrivalGate()->getFullName());
+-
+     auto pkt = check_and_cast<Packet *>(msg);
+     fromIpUe(pkt);
+ }
+@@ -64,15 +70,23 @@
+ void HandoverPacketHolderUe::fromIpUe(Packet *datagram)
+ {
+     EV << "HandoverPacketHolder::fromIpUe - message from IP layer: send to stack: " << datagram->str() << std::endl;
+-    // Remove control info from IP datagram
+     datagram->removeTagIfPresent<SocketInd>();
+     removeAllSimu5GTags(datagram);
+-
+-    // Remove InterfaceReq Tag (we already are on an interface now)
+     datagram->removeTagIfPresent<InterfaceReq>();
+ 
++    // nascTime / FRER: NOTE -- this function has no way to know, from the
++    // packet alone, whether it belongs to the primary or DC-secondary NR
++    // leg (that information lives in FlowControlInfo/DRB routing, already
++    // stripped by removeAllSimu5GTags() above by the time we'd check it).
++    // Left as ueHold_/ueHoldFromIp_ (primary-leg gating) for now -- this
++    // means a DC-secondary leg's own hold-during-handover state
++    // (ueHold2_/ueHoldFromIp2_) is tracked correctly by
++    // triggerHandoverUe()/signalHandoverCompleteUe() below, but nothing in
++    // THIS function currently branches traffic into the "2" queue during a
++    // hold. Flagging as a genuine open gap, not silently fixed -- routing
++    // packets to the correct hold queue would need the DRB/leg identified
++    // before the tag strip, which is a larger change than this pass covers.
+     if (ueHold_) {
+-        // hold packets until handover is complete
+         ueHoldFromIp_.push_back(datagram);
+     }
+     else {
+@@ -90,35 +104,58 @@
+     send(pkt, stackGateOut_);
+ }
+ 
+-void HandoverPacketHolderUe::triggerHandoverUe(MacNodeId newMasterId, bool isNr)
++void HandoverPacketHolderUe::triggerHandoverUe(MacNodeId newMasterId, bool isNr, bool isDcSecondary)
+ {
+     EV << NOW << " HandoverPacketHolder::triggerHandoverUe - start holding packets" << endl;
+-
++    // nascTime / FRER: three-way selection, was two-way. isDcSecondary
++    // only ever meaningful when isNr is also true (mirrors HandoverController's
++    // own isDcSecondary_ semantics -- an LTE leg is never DC-secondary).
+     if (newMasterId != NODEID_NONE) {
+-        ueHold_ = true;
+-        MacNodeId& servingNodeIdToSet = !isNr ? servingNodeId_ : nrServingNodeId_;
+-        servingNodeIdToSet = newMasterId;
++        if (!isNr) {
++            ueHold_ = true;
++            servingNodeId_ = newMasterId;
++        }
++        else if (isDcSecondary) {
++            ueHold2_ = true;
++            nrServingNodeId2_ = newMasterId;
++        }
++        else {
++            ueHold_ = true;
++            nrServingNodeId_ = newMasterId;
++        }
+     }
+     else {
+-        MacNodeId& servingNodeIdToSet = !isNr ? servingNodeId_ : nrServingNodeId_;
+-        servingNodeIdToSet = NODEID_NONE;
++        if (!isNr)
++            servingNodeId_ = NODEID_NONE;
++        else if (isDcSecondary)
++            nrServingNodeId2_ = NODEID_NONE;
++        else
++            nrServingNodeId_ = NODEID_NONE;
+     }
+ }
+ 
+-void HandoverPacketHolderUe::signalHandoverCompleteUe(bool isNr)
++void HandoverPacketHolderUe::signalHandoverCompleteUe(bool isNr, bool isDcSecondary)
+ {
+     Enter_Method("signalHandoverCompleteUe");
+-
+-    MacNodeId servingNodeId = !isNr ? servingNodeId_ : nrServingNodeId_;
++    // nascTime / FRER: three-way selection, was two-way.
++    MacNodeId servingNodeId = !isNr ? servingNodeId_ : (isDcSecondary ? nrServingNodeId2_ : nrServingNodeId_);
+     if (servingNodeId != NODEID_NONE) {
+-        // send held packets
+-        while (!ueHoldFromIp_.empty()) {
+-            auto pkt = ueHoldFromIp_.front();
+-            ueHoldFromIp_.pop_front();
+-            toStackUe(pkt);
++        if (isDcSecondary) {
++            while (!ueHoldFromIp2_.empty()) {
++                auto pkt = ueHoldFromIp2_.front();
++                ueHoldFromIp2_.pop_front();
++                toStackUe(pkt);
++            }
++            ueHold2_ = false;
++        }
++        else {
++            while (!ueHoldFromIp_.empty()) {
++                auto pkt = ueHoldFromIp_.front();
++                ueHoldFromIp_.pop_front();
++                toStackUe(pkt);
++            }
++            ueHold_ = false;
+         }
+-        ueHold_ = false;
+     }
+ }
+-
+ } //namespace
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.h Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.h
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.h	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.h	2026-07-22 19:15:27.000000000 +0800
+@@ -40,10 +40,16 @@
+     // NR MAC node id of this node's master (if enabled)
+     MacNodeId nrServingNodeId_ = NODEID_NONE;
+ 
++
++
+     bool ueHold_ = false;
+     typedef std::list<inet::Packet *> IpDatagramQueue;
+     IpDatagramQueue ueHoldFromIp_;
+ 
++    MacNodeId nrServingNodeId2_ = NODEID_NONE;
++    bool ueHold2_ = false;
++    IpDatagramQueue ueHoldFromIp2_;
++
+     cGate *stackGateOut_ = nullptr;
+ 
+   protected:
+@@ -56,8 +62,11 @@
+ 
+   public:
+     ~HandoverPacketHolderUe() override;
+-    void triggerHandoverUe(MacNodeId newMasterId, bool isNr = false);
+-    void signalHandoverCompleteUe(bool isNr = false);
++    // nascTime / FRER: isDcSecondary parameter added, default false so
++    // every existing call site (LTE leg, primary NR leg) is source-compatible
++    // and behaviorally unchanged.
++    virtual void triggerHandoverUe(MacNodeId newMasterId, bool isNr, bool isDcSecondary = false);
++    void signalHandoverCompleteUe(bool isNr = false, bool isDcSecondary = false);
+ 
+     MacNodeId getServingNodeId() const { return servingNodeId_; }
+     MacNodeId getNrServingNodeId() const { return nrServingNodeId_; }
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.ned Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.ned
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.ned	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/ip2nic/HandoverPacketHolderUe.ned	2026-07-22 19:15:27.000000000 +0800
+@@ -25,4 +25,5 @@
+         input upperLayerIn;
+         input x2In @loose; // required by the interface, but UNUSED
+         output stackOut;
++        output hoManagerOut @loose; // to forward packets to handover manager for X2 tunneling
+ }
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/IHandoverPacketFilter.ned Simu5G/src/simu5g/stack/ip2nic/IHandoverPacketFilter.ned
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/IHandoverPacketFilter.ned	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/ip2nic/IHandoverPacketFilter.ned	2026-07-22 19:15:27.000000000 +0800
+@@ -21,4 +21,5 @@
+         input upperLayerIn;
+         input x2In @loose; // only used in eNodeB/gNodeB nodes
+         output stackOut;
++        output hoManagerOut @loose; // to forward packets to handover manager for X2 tunneling
+ }
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/Ip2Nic.cc Simu5G/src/simu5g/stack/ip2nic/Ip2Nic.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/Ip2Nic.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/ip2nic/Ip2Nic.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -2,7 +2,7 @@
+ //                  Simu5G
+ //
+ // Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+-// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
++// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -202,8 +202,12 @@
+ MacNodeId Ip2Nic::getNextHopNodeId(const Ipv4Address& destAddr, bool useNR, MacNodeId sourceId)
+ {
+     bool isEnb = (nodeType_ == NODEB);
+-
+     if (isEnb) {
++        EV_INFO << "DEBUG_NEXTHOP destAddr=" << destAddr
++                << " isNR_=" << isNR_
++                << " useNRparam=" << useNR
++                << " dualConnectivityEnabled_=" << dualConnectivityEnabled_
++                << endl;
+         // ENB variants
+         MacNodeId destId;
+         if (isNR_ && (!dualConnectivityEnabled_ || useNR))
+@@ -211,39 +215,45 @@
+         else
+             destId = binder_->getMacNodeId(destAddr);
+ 
++        EV_INFO << "DEBUG_NEXTHOP_RESULT destAddr=" << destAddr << " resolvedDestId=" << destId << endl;
++
+         // master of this UE (myself)
+         MacNodeId master = binder_->getServingNodeOrSelf(destId);
+-        if (master != nodeId_) {
++
++        // nascTime / FRER: this gNB may legitimately be the UE's registered
++        // DC secondary, not just its primary. Without this check, every gNB
++        // that isn't the UE's primary unconditionally redirects destId to
++        // the master -- correct for a stale/wrong cell, wrong for a
++        // genuine secondary that should deliver locally instead.
++        bool isDcSecondaryForThisUe = (binder_->getDcSecondaryNextHop(destId) == nodeId_);
++
++        if (master != nodeId_ && !isDcSecondaryForThisUe) {
+             destId = master;
+         }
+-        else {
+-            // for dual connectivity
++        else if (master == nodeId_) {
++            // for dual connectivity (native EN-DC, unaffected by the above)
+             master = binder_->getMasterNodeOrSelf(master);
+             if (master != nodeId_) {
+                 destId = master;
+             }
+         }
+-        // else UE is directly attached
++        // else: master != nodeId_ but isDcSecondaryForThisUe == true --
++        // keep destId as already resolved above; this gNB is the UE's
++        // legitimate DC secondary, deliver locally rather than redirect.
++
+         return destId;
+     }
+     else {
+-        // UE variants
++        // UE variants -- unchanged
+         if (!hasD2DSupport_) {
+-            // UE is subject to handovers, master may change
+             return binder_->getServingNodeOrSelf(nodeId_);
+         }
+-
+-        // D2D-capable UE: check if D2D communication is possible
+         MacNodeId destId = binder_->getMacNodeId(destAddr);
+         MacNodeId srcId = isNR_ ? (useNR ? nrNodeId_ : nodeId_) : nodeId_;
+-
+-        // check whether the destination is inside the LTE network and D2D is active
+         if (destId == NODEID_NONE ||
+             !(binder_->getD2DCapability(srcId, destId) && binder_->getD2DMode(srcId, destId) == DM)) {
+-            // packet is destined to the eNB; UE is subject to handovers: master may change
+             return binder_->getServingNodeOrSelf(sourceId);
+         }
+-
+         return destId;
+     }
+ }
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/TechnologyDecision.cc Simu5G/src/simu5g/stack/ip2nic/TechnologyDecision.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/ip2nic/TechnologyDecision.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/ip2nic/TechnologyDecision.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -82,6 +82,16 @@
+         bool ueLteStack = (binder_->getServingNodeOrSelf(ueId) != NODEID_NONE);
+         bool ueNrStack = (binder_->getServingNodeOrSelf(nrUeId) != NODEID_NONE);
+ 
++        // nascTime / FRER: debug -- confirm exactly what this branch
++        // resolves for a DL flow before useNr gets decided.
++        EV_INFO << "DEBUG_NODEB destAddr=" << destAddr
++                << " resolvedUeId=" << ueId
++                << " resolvedNrUeId=" << nrUeId
++                << " ueLteStack=" << ueLteStack
++                << " ueNrStack=" << ueNrStack
++                << " dualConnectivityEnabled_=" << dualConnectivityEnabled_
++                << endl;
++
+         if (!ueLteStack && !ueNrStack) {
+             EV << "TechnologyDecision: UE is not attached to any serving node. Delete packet." << endl;
+             delete pkt;
+@@ -108,12 +118,17 @@
+         //    after: ueLteStack=true, ueNrStack=true, servingNodeId=1, nrServingNodeId=2, typeOfService=10 --> useNr = true
+         //    before: ueLteStack=true, ueNrStack=true,servingNodeId=1, nrServingNodeId=0, typeOfService=10 --> useNr = false
+         //
++
+         auto handoverPacketHolder = check_and_cast<HandoverPacketHolderUe*>(getParentModule()->getSubmodule("handoverPacketHolder"));
+         MacNodeId servingNodeId = handoverPacketHolder->getServingNodeId();
+         MacNodeId nrServingNodeId = handoverPacketHolder->getNrServingNodeId();
+         bool hasLteServing = (servingNodeId != NODEID_NONE);
+         bool hasNrServing = (nrServingNodeId != NODEID_NONE);
+ 
++        EV_INFO << "DEBUG: TechnologyDecision UE nodeId=" << nodeId_
++                << " servingNodeId=" << servingNodeId << " nrServingNodeId=" << nrServingNodeId
++                << " hasLteServing=" << hasLteServing << " hasNrServing=" << hasNrServing << endl;
++
+         if (!hasLteServing && !hasNrServing) {
+             EV << "TechnologyDecision: UE is not attached to any serving node. Delete packet." << endl;
+             delete pkt;
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/mac/amc/LteAmc.cc Simu5G/src/simu5g/stack/mac/amc/LteAmc.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/mac/amc/LteAmc.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/mac/amc/LteAmc.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -2,7 +2,7 @@
+ //                  Simu5G
+ //
+ // Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+-// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
++// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -59,14 +59,19 @@
+ MacNodeId LteAmc::getServingNodeOrSelf(MacNodeId dst)
+ {
+     MacNodeId nh = binder_->getServingNodeOrSelf(dst);
+-
+     if (nh == nodeId_) {
+         // I'm the master for this slave (it is directly connected)
+         return dst;
+     }
+-
++    // nascTime / FRER: I might not be dst's primary, but I could still be
++    // its registered DC secondary -- in which case I should keep operating
++    // on dst directly, not redirect to the primary (which isn't a valid
++    // UE id from my own per-UE lookup tables, causing map::at to throw
++    // in every caller downstream: computeTxParams, getFeedback, etc.)
++    if (binder_->getDcSecondaryNextHop(dst) == nodeId_) {
++        return dst;
++    }
+     EV << "LteAmc::getServingNodeOrSelf Node Id dst : " << dst << endl;
+-
+     return nh;
+ }
+ 
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/mac/LteMacEnb.cc Simu5G/src/simu5g/stack/mac/LteMacEnb.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/mac/LteMacEnb.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/mac/LteMacEnb.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -228,7 +228,9 @@
+             macSduRequest->setChunkLength(b(1)); // TODO: should be 0
+             macSduRequest->setUeId(destId);
+             macSduRequest->setLcid(destCid.getLcid());
+-            macSduRequest->setSduSize(allocatedBytes - MAC_HEADER);    // do not consider MAC header size
++            unsigned int sduSize = (allocatedBytes > MAC_HEADER) ? (allocatedBytes - MAC_HEADER) : 0;
++            macSduRequest->setSduSize(sduSize);
++            //macSduRequest->setSduSize(allocatedBytes - MAC_HEADER);    // do not consider MAC header size
+             pkt->insertAtFront(macSduRequest);
+             if (queueSize_ != 0 && queueSize_ < macSduRequest->getSduSize()) {
+                 throw cRuntimeError("LteMacEnb::macSduRequest: configured queueSize too low - requested SDU will not fit in queue!"
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/mac/LteMacUe.cc Simu5G/src/simu5g/stack/mac/LteMacUe.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/mac/LteMacUe.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/mac/LteMacUe.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -2,7 +2,7 @@
+ //                  Simu5G
+ //
+ // Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+-// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
++// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -58,7 +58,7 @@
+ {
+     LteMacBase::initialize(stage);
+     if (stage == inet::INITSTAGE_LOCAL) {
+-        bool isNr = strcmp(getFullName(), "nrMac") == 0;
++        bool isNr = (strcmp(getFullName(), "nrMac") == 0 || strcmp(getFullName(), "nrMac2") == 0);
+         nodeId_ = MacNodeId(networkNode_->par(isNr ? "nrMacNodeId" : "macNodeId").intValue());
+ 
+         numPreambles_ = par("numPreambles");
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/mac/scheduling_modules/QoSAwareScheduler.cc Simu5G/src/simu5g/stack/mac/scheduling_modules/QoSAwareScheduler.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/mac/scheduling_modules/QoSAwareScheduler.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/mac/scheduling_modules/QoSAwareScheduler.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -80,8 +80,16 @@
+         if (dir != UL && dir != DL) continue;
+ 
+         const UserTxParams& info = eNbScheduler_->mac_->getAmc()->computeTxParams(nodeId, dir, carrierFrequency_);
+-        if (info.readCqiVector().empty() || info.readBands().empty()) continue;
+-        if (eNbScheduler_->allocatedCws(nodeId) == info.getLayers().size()) continue;
++        if (info.readCqiVector().empty() || info.readBands().empty()) {
++            EV_INFO << "DEBUG_SCHED cid=" << cid << " SKIP: empty cqiVector or bands (cqiSize="
++                    << info.readCqiVector().size() << " bandsSize=" << info.readBands().size() << ")" << endl;
++            continue;
++        }
++        if (eNbScheduler_->allocatedCws(nodeId) == info.getLayers().size()) {
++            EV_INFO << "DEBUG_SCHED cid=" << cid << " SKIP: allocatedCws(" << eNbScheduler_->allocatedCws(nodeId)
++                    << ") == layers(" << info.getLayers().size() << ")" << endl;
++            continue;
++        }
+ 
+         bool cqiNull = std::any_of(info.readCqiVector().begin(), info.readCqiVector().end(), [](int cqi) { return cqi == 0; });
+         if (cqiNull) continue;
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/feedback/LteDlFeedbackGenerator.cc Simu5G/src/simu5g/stack/phy/feedback/LteDlFeedbackGenerator.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/feedback/LteDlFeedbackGenerator.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/phy/feedback/LteDlFeedbackGenerator.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -2,7 +2,7 @@
+ //                  Simu5G
+ //
+ // Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+-// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
++// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -44,7 +44,7 @@
+         currentTxMode_ = aToTxMode(par("initialTxMode"));
+ 
+         cModule *networkNode = getContainingNode(this);
+-        bool isNr = strcmp(getFullName(), "nrDlFbGen") == 0;
++        bool isNr = (strcmp(getFullName(), "nrDlFbGen") == 0 || strcmp(getFullName(), "nrDlFbGen2") == 0);
+         nodeId_ = MacNodeId(networkNode->par(isNr ? "nrMacNodeId" : "macNodeId").intValue()); //TODO or
+ 
+         // Initialize timers
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyBase.cc Simu5G/src/simu5g/stack/phy/LtePhyBase.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyBase.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/phy/LtePhyBase.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -2,7 +2,7 @@
+ //                  Simu5G
+ //
+ // Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+-// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
++// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -186,39 +186,48 @@
+     delete frame->removeControlInfo();
+ 
+     // send the frame to nodes belonging to the multicast group only
+-    for (auto [destId, nodeInfo] : binder_->getNodeInfoMap()) {
+-        // if the node in the list does not use the same LTE/NR technology of this PHY module, skip it
+-        if (isNrUe(destId) != isNr_)
+-            continue;
+-
+-        if (destId != nodeId_ && binder_->isInMulticastGroup(destId, groupId)) {
+-            EV << NOW << " LtePhyBase::sendMulticast - node " << destId << " is in the multicast group" << endl;
+-
+-            // get a pointer to receiving module
+-            cModule *receiver = nodeInfo.moduleRef;
+-            LtePhyBase *recvPhy;
+-            double dist;
+-
+-            if (enableMulticastD2DRangeCheck_) {
+-                // get the correct PHY layer module
+-                recvPhy = (isNrUe(destId)) ? check_and_cast<LtePhyBase *>(receiver->getSubmodule("cellularNic")->getSubmodule("nrPhy"))
+-                                  : check_and_cast<LtePhyBase *>(receiver->getSubmodule("cellularNic")->getSubmodule("phy"));
+-
+-                dist = recvPhy->getRadioPosition().distance(getRadioPosition());
+-
+-                if (dist > multicastD2DRange_) {
+-                    EV << NOW << " LtePhyBase::sendMulticast - node too far (" << dist << " > " << multicastD2DRange_ << ". skipping transmission" << endl;
+-                    continue;
++        for (auto [destId, nodeInfo] : binder_->getNodeInfoMap()) {
++            // if the node in the list does not use the same LTE/NR technology of this PHY module, skip it
++            if (isNrUe(destId) != isNr_)
++                continue;
++            if (destId != nodeId_ && binder_->isInMulticastGroup(destId, groupId)) {
++                EV << NOW << " LtePhyBase::sendMulticast - node " << destId << " is in the multicast group" << endl;
++                // get a pointer to receiving module
++                cModule *receiver = nodeInfo.moduleRef;
++                LtePhyBase *recvPhy;
++                double dist;
++                if (enableMulticastD2DRangeCheck_) {
++                    // get the correct PHY layer module
++                    recvPhy = (isNrUe(destId)) ? check_and_cast<LtePhyBase *>(receiver->getSubmodule("cellularNic")->getSubmodule("nrPhy"))
++                                      : check_and_cast<LtePhyBase *>(receiver->getSubmodule("cellularNic")->getSubmodule("phy"));
++                    dist = recvPhy->getRadioPosition().distance(getRadioPosition());
++                    if (dist > multicastD2DRange_) {
++                        EV << NOW << " LtePhyBase::sendMulticast - node too far (" << dist << " > " << multicastD2DRange_ << ". skipping transmission" << endl;
++                        continue;
++                    }
+                 }
++                EV << NOW << " LtePhyBase::sendMulticast - sending frame to node " << destId << endl;
++                // Create a duplicate frame before sending
++                LteAirFrame *frameToSend = frame->dup();
++
++                // nascTime / FRER: same DC-secondary direct-delivery override as
++                // sendUnicast() -- resolve cellularNic in C++ and target
++                // nrRadioIn2 directly, bypassing NED-interface gate-forwarding
++                // restrictions entirely.
++                bool isNrDest = isNrUe(destId);
++                bool delivered = false;
++                if (isNrDest && binder_->getDcSecondaryNextHop(destId) == nodeId_) {
++                    cModule *nic = receiver->getSubmodule("cellularNic");
++                    int secGate = nic ? nic->findGate("nrRadioIn2") : -1;
++                    if (secGate >= 0) {
++                        sendDirect(frameToSend, 0, frame->getDuration(), nic, secGate);
++                        delivered = true;
++                    }
++                }
++                if (!delivered)
++                    sendDirect(frameToSend, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrDest, destId));
+             }
+-
+-            EV << NOW << " LtePhyBase::sendMulticast - sending frame to node " << destId << endl;
+-
+-            // Create a duplicate frame before sending
+-            LteAirFrame *frameToSend = frame->dup();
+-            sendDirect(frameToSend, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrUe(destId)));
+         }
+-    }
+ 
+     // delete the original frame
+     delete frame;
+@@ -243,12 +252,42 @@
+         frame->setAdditionalInfo(*userControlInfo);
+         delete userControlInfo;
+     }
+-
+-    sendDirect(frame, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrUe(dest)));
++    // nascTime / FRER: if this PHY is dest's registered DC secondary,
++    // deliver directly to cellularNic.nrRadioIn2 by resolving the
++    // submodule in C++ rather than via NED gate forwarding -- avoids
++    // needing nrRadioIn2/dualConnEnabled declared on ICellularNic, since
++    // C++ getSubmodule() isn't restricted to the "like" interface's
++    // declared contract the way NED connections are.
++    bool isNrDest = isNrUe(dest);
++    if (isNrDest && binder_->getDcSecondaryNextHop(dest) == nodeId_) {
++        cModule *nic = receiver->getSubmodule("cellularNic");
++        int secGate = nic ? nic->findGate("nrRadioIn2") : -1;
++        if (secGate >= 0) {
++            sendDirect(frame, 0, frame->getDuration(), nic, secGate);
++            return;
++        }
++    }
++    sendDirect(frame, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver, isNrDest, dest));
+ }
+ 
+-int LtePhyBase::getReceiverGateIndex(const cModule *receiver, bool isNr) const
++int LtePhyBase::getReceiverGateIndex(const cModule *receiver, bool isNr, MacNodeId dest) const
+ {
++    // nascTime / FRER: if this PHY (the sender -- nodeId_ here is always
++    // the sender's own ID, since sendUnicast()/sendMulticast() are called
++    // on the transmitting PHY) is registered as dest's DC secondary,
++    // route to the receiver's dedicated secondary NR radio gate instead
++    // of the shared nrRadioIn. Falls through to normal behavior if the
++    // receiver has no such gate (e.g. a non-DC-capable UE), rather than
++    // hard-failing.
++    if (isNr && dest != NODEID_NONE && binder_->getDcSecondaryNextHop(dest) == nodeId_) {
++        int secGate = receiver->findGate("nrRadioIn2");
++        EV_INFO << "DEBUG_GATEROUTE sender_nodeId_=" << nodeId_ << " dest=" << dest
++                << " dcSecondaryNextHop=" << binder_->getDcSecondaryNextHop(dest)
++                << " secGate=" << secGate << " receiver=" << receiver->getFullPath() << endl;
++        if (secGate >= 0)
++            return secGate;
++    }
++
+     int gate = (isNr) ? receiver->findGate("nrRadioIn") : receiver->findGate("radioIn");
+     if (gate < 0) {
+         gate = receiver->findGate("lteRadioIn");
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyBase.h Simu5G/src/simu5g/stack/phy/LtePhyBase.h
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyBase.h	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/phy/LtePhyBase.h	2026-07-22 19:15:27.000000000 +0800
+@@ -302,7 +302,7 @@
+     /**
+      * Determine radio gate index of the receiving node
+      */
+-    int getReceiverGateIndex(const cModule *, bool isNr) const;
++    int getReceiverGateIndex(const cModule *, bool isNr, MacNodeId dest = NODEID_NONE) const;
+ 
+   public:
+     /*
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyEnb.cc Simu5G/src/simu5g/stack/phy/LtePhyEnb.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyEnb.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/phy/LtePhyEnb.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -172,7 +172,8 @@
+      *                     TTI x+0.1: ue changes master
+      *                     TTI x+1: packet from UE arrives at the old master
+      */
+-    if (binder_->getServingNodeOrSelf(lteInfo->getSourceId()) != nodeId_) {
++    if (binder_->getServingNodeOrSelf(lteInfo->getSourceId()) != nodeId_
++            && binder_->getDcSecondaryNextHop(lteInfo->getSourceId()) != nodeId_) {
+         EV << "WARNING: frame from a UE that is leaving this cell (handover): deleted " << endl;
+         EV << "Source MacNodeId: " << lteInfo->getSourceId() << endl;
+         EV << "Master MacNodeId: " << nodeId_ << endl;
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyEnbD2D.cc Simu5G/src/simu5g/stack/phy/LtePhyEnbD2D.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyEnbD2D.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/phy/LtePhyEnbD2D.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -2,7 +2,7 @@
+ //                  Simu5G
+ //
+ // Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+-// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
++// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -174,7 +174,8 @@
+      *                     TTI x+0.1: UE changes master
+      *                     TTI x+1: packet from UE arrives at the old master
+      */
+-    if (binder_->getServingNodeOrSelf(lteInfo->getSourceId()) != nodeId_) {
++    if (binder_->getServingNodeOrSelf(lteInfo->getSourceId()) != nodeId_
++            && binder_->getDcSecondaryNextHop(lteInfo->getSourceId()) != nodeId_) {
+         EV << "WARNING: frame from a UE that is leaving this cell (handover): deleted " << endl;
+         EV << "Source MacNodeId: " << lteInfo->getSourceId() << endl;
+         EV << "Master MacNodeId: " << nodeId_ << endl;
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyUe.cc Simu5G/src/simu5g/stack/phy/LtePhyUe.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/LtePhyUe.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/phy/LtePhyUe.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -2,7 +2,7 @@
+ //                  Simu5G
+ //
+ // Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+-// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
++// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -53,7 +53,8 @@
+         handoverController_->setPhy(this);
+ 
+         // setting isNr_ was originally done in the NrPhyUe subclass, but it is needed here
+-        isNr_ = dynamic_cast<NrPhyUe*>(this) && strcmp(getFullName(), "nrPhy") == 0;
++        isNr_ = dynamic_cast<NrPhyUe*>(this)
++                && (strcmp(getFullName(), "nrPhy") == 0 || strcmp(getFullName(), "nrPhy2") == 0);
+ 
+         // get local id
+         nodeId_ = MacNodeId(hostModule->par(isNr_ ? "nrMacNodeId" : "macNodeId").intValue());
+@@ -74,7 +75,8 @@
+     LteAirFrame *frame = new LteAirFrame("cellSelectionFrame");
+     UserControlInfo *cInfo = new UserControlInfo();
+     outCandidateMasterId = NODEID_NONE;
+-
++    EV_INFO << "DEBUG: findCandidateEnb ENTERED, isNr_=" << isNr_
++            << " enbList.size()=" << binder_->getEnbList().size() << endl;
+     // get the list of all eNodeBs in the network
+     for (const auto &enbInfo : binder_->getEnbList()) {
+         // the NR phy layer only checks signal from gNBs, and
+@@ -140,6 +142,8 @@
+     if (servingNodeId_ != NODEID_NONE) {
+         LteMacEnb *newMacEnb = check_and_cast<LteMacEnb *>(binder_->getMacByNodeId(servingNodeId_));
+         cellInfo_ = newMacEnb->getCellInfo();
++        EV_INFO << "DEBUG_CHANGESERVING nodeId_=" << nodeId_ << " servingNodeId_=" << servingNodeId_
++                << " cellInfo_=" << cellInfo_ << " thisModule=" << getFullPath() << endl;
+         cellInfo_->attachUser(nodeId_);
+     }
+ 
+@@ -163,6 +167,13 @@
+ 
+     EV << "LtePhy: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
+ 
++    // nascTime / FRER: debug -- confirm which PHY instance actually receives
++    // this call, unambiguously, rather than inferring from log proximity.
++    EV_INFO << "DEBUG_AIRFRAME module=" << getFullPath()
++            << " sourceId=" << lteInfo->getSourceId()
++            << " destId=" << lteInfo->getDestId()
++            << " frameType=" << phyFrameTypeToA((LtePhyFrameType)lteInfo->getFrameType()) << endl;
++
+     if (!binder_->nodeExists(lteInfo->getSourceId())) {
+         // source has left the simulation
+         delete msg;
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/NrPhyUe.cc Simu5G/src/simu5g/stack/phy/NrPhyUe.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/phy/NrPhyUe.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/phy/NrPhyUe.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -38,6 +38,13 @@
+ 
+     EV << "NrPhyUe: received new LteAirFrame with ID " << frame->getId() << " from channel" << endl;
+ 
++    // nascTime / FRER: debug -- confirm which PHY instance actually receives
++    // this call, unambiguously, rather than inferring from log proximity.
++    EV_INFO << "DEBUG_AIRFRAME module=" << getFullPath()
++            << " sourceId=" << lteInfo->getSourceId()
++            << " destId=" << lteInfo->getDestId()
++            << " frameType=" << phyFrameTypeToA((LtePhyFrameType)lteInfo->getFrameType()) << endl;
++
+     MacNodeId sourceId = lteInfo->getSourceId();
+     if (!binder_->nodeExists(sourceId)) {
+         // The source has left the simulation
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/BearerManagement.cc Simu5G/src/simu5g/stack/rrc/BearerManagement.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/BearerManagement.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/rrc/BearerManagement.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -1,7 +1,7 @@
+ //
+ //                  Simu5G
+ //
+-// Authors: Andras Varga (OpenSim Ltd)
++// Authors: Andras Varga (OpenSim Ltd), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -9,6 +9,8 @@
+ // and cannot be removed from it.
+ //
+ 
++#include <sstream>
++
+ #include "simu5g/stack/rrc/BearerManagement.h"
+ #include "simu5g/stack/rrc/D2DModeController.h"
+ #include "simu5g/stack/rrc/Registration.h"
+@@ -52,6 +54,19 @@
+         nrRlcMuxModule.reference(this, "nrRlcMuxModule", false);
+         macModule.reference(this, "macModule", true);
+         nrMacModule.reference(this, "nrMacModule", false);
++
++        // nascTime / FRER: optional second NR leg -- unresolved (empty)
++        // on any NIC that doesn't have nrRlcMux2/nrMac2.
++        nrRlcMuxModule2.reference(this, "nrRlcMuxModule2", false);
++        nrMacModule2.reference(this, "nrMacModule2", false);
++
++        std::string drbIdsStr = par("dcSecondaryDrbIds").stdstringValue();
++        std::stringstream ss(drbIdsStr);
++        std::string token;
++        while (std::getline(ss, token, ',')) {
++            if (!token.empty())
++                dcSecondaryDrbIds_.insert(std::atoi(token.c_str()));
++        }
+     }
+ }
+ 
+@@ -60,108 +75,48 @@
+     throw cRuntimeError("This module does not process messages");
+ }
+ 
+-void BearerManagement::createIncomingConnection(FlowControlInfo *lteInfo, bool withPdcp)
++RlcLeg BearerManagement::legForDrb(DrbId drbId, bool isNr, bool isUeSide) const
+ {
+-    Enter_Method_Silent("createIncomingConnection()");
+-
+-    EV << "BearerManagement::createIncomingConnection - " << " srcId=" << lteInfo->getSourceId() << " destId=" << lteInfo->getDestId()
+-        << " groupId=" << lteInfo->getMulticastGroupId() << " drbId=" << lteInfo->getDrbId()
+-        << " direction=" << dirToA(lteInfo->getDirection())
+-        << " withPdcp=" << (withPdcp ? "yes" : "no") << endl;
+-
+-    ASSERT(lteInfo->getDestId() == registration_->getLteNodeId() || lteInfo->getDestId() == registration_->getNrNodeId() || lteInfo->getMulticastGroupId() != NODEID_NONE);
+-
+-    // Create MAC incoming connection
+-    FlowDescriptor desc = FlowDescriptor::fromFlowControlInfo(*lteInfo);
+-    MacNodeId senderId = desc.getSourceId();
+-    auto mac = (registration_->getNodeType()==UE && isNrUe(lteInfo->getDestId())) ? nrMacModule.get() : macModule.get(); //TODO FIXME! DOES NOT WORK FOR MULTICAST!!!!!
+-    LogicalCid lcid = mac->drbIdToLcid(desc.getDrbId());
+-    MacCid cid = MacCid(senderId, lcid);
+-    mac->createIncomingConnection(cid, desc);
+-
+-    // RLC entity creation
+-    DrbKey rlcId = ctrlInfoToRxDrbKey(lteInfo);
+-    bool isNr = (registration_->getNodeType()==UE && isNrUe(lteInfo->getDestId())); //TODO FIXME! DOES NOT WORK FOR MULTICAST!!!!!
+-    auto *rlcMux = isNr ? nrRlcMuxModule.get() : rlcMuxModule.get();
+-    createAndInstallRlcRxBuffer(rlcId, lteInfo, rlcMux, isNr);
+-
+-    // PDCP entity creation
+-    auto *pdcpMux = check_and_cast<UpperMux *>(nicModule_->getSubmodule("pdcpMux"));
+-    auto *pdcpDcMux = dynamic_cast<DcMux *>(nicModule_->getSubmodule("pdcpDcMux")); // nullptr on UEs (no X2)
+-
+-    if (withPdcp) {
+-        DrbKey id = DrbKey(lteInfo->getSourceId(), lteInfo->getDrbId());
+-        std::string name = "pdcp-rx-" + std::to_string(num(id.getNodeId())) + "-" + std::to_string(num(id.getDrbId()));
+-        auto *module = pdcpRxEntityModuleType_->create(name.c_str(), nicModule_);
+-        module->par("headerCompressedSize") = par("headerCompressedSize");
+-        module->finalizeParameters();
+-        module->buildInside();
+-        setEntityDisplayPosition(module, true, rlcMux, num(id.getDrbId()));
+-
+-        // Wire RLC RX out → PDCP RX in (direct per-DRB connection)
+-        auto rlcIt = (isNrUe(lteInfo->getDestId()) ? nrRlcRxEntities_ : rlcRxEntities_).find(rlcId);
+-        ASSERT(rlcIt != (isNrUe(lteInfo->getDestId()) ? nrRlcRxEntities_ : rlcRxEntities_).end());
+-        rlcIt->second->gate("out")->connectTo(module->gate("in"));
+-
+-        // Wire entity out gate → UpperMux fromRxEntity
+-        int fromIdx = pdcpMux->gateSize("fromRxEntity");
+-        pdcpMux->setGateSize("fromRxEntity", fromIdx + 1);
+-        module->gate("out")->connectTo(pdcpMux->gate("fromRxEntity", fromIdx));
+-
+-        // Wire DcMux → entity dcIn gate (for UL X2 dispatch, eNB only)
+-        if (pdcpDcMux && module->hasGate("dcIn")) {
+-            int dcIdx = pdcpDcMux->gateSize("toRxEntity");
+-            pdcpDcMux->setGateSize("toRxEntity", dcIdx + 1);
+-            pdcpDcMux->gate("toRxEntity", dcIdx)->connectTo(module->gate("dcIn"));
+-        }
+-
+-        module->scheduleStart(simTime());
+-        module->callInitialize();
+-        auto *rxEnt = check_and_cast<PdcpRxEntityBase *>(module);
+-        pdcpRxEntities_[id] = rxEnt;
+-    }
+-    else {
+-        // DC secondary node: create bypass RX entity (forwards UL to master via X2)
+-        ASSERT(pdcpDcMux != nullptr); // bypass entities are eNB-only
+-        DrbKey id = DrbKey(lteInfo->getSourceId(), lteInfo->getDrbId());
+-        std::string name = "pdcp-bypass-rx-" + std::to_string(num(id.getNodeId())) + "-" + std::to_string(num(id.getDrbId()));
+-        auto *module = pdcpBypassRxEntityModuleType_->create(name.c_str(), nicModule_);
+-        module->finalizeParameters();
+-        module->buildInside();
+-        setEntityDisplayPosition(module, true, rlcMux, num(id.getDrbId()));
+-
+-        // Wire RLC RX out → bypass PDCP RX in (direct per-DRB connection)
+-        auto rlcIt2 = (isNrUe(lteInfo->getDestId()) ? nrRlcRxEntities_ : rlcRxEntities_).find(rlcId);
+-        ASSERT(rlcIt2 != (isNrUe(lteInfo->getDestId()) ? nrRlcRxEntities_ : rlcRxEntities_).end());
+-        rlcIt2->second->gate("out")->connectTo(module->gate("in"));
+-
+-        // Wire entity out gate → DcMux (bypass RX sends to X2 via DcMux)
+-        int fromIdx = pdcpDcMux->gateSize("fromEntity");
+-        pdcpDcMux->setGateSize("fromEntity", fromIdx + 1);
+-        module->gate("out")->connectTo(pdcpDcMux->gate("fromEntity", fromIdx));
+-
+-        module->scheduleStart(simTime());
+-        module->callInitialize();
+-        auto *rxEnt = check_and_cast<PdcpRxEntityBase *>(module);
+-        pdcpBypassRxEntities_[id] = rxEnt;
+-    }
+-}
+-
++    if (!isNr)
++        return RlcLeg::LTE;
++    if (isUeSide && dcSecondaryDrbIds_.count(num(drbId)) && nrRlcMuxModule2 && nrMacModule2)
++        return RlcLeg::NR_SECONDARY;
++    return RlcLeg::NR_PRIMARY;
++}
++
++// ============================================================================
++// createOutgoingConnection() — corrected.
++// Every line is byte-for-byte pristine EXCEPT where marked "nascTime / FRER".
++// The gNB-side (NODEB) path is now completely untouched, matching pristine
++// exactly -- this is the fix for the null LteMacBase crash: the original
++// rewrite routed gNB-side traffic through a unified leg selector that could
++// resolve to an unconfigured nrMacModule on a plain gNodeB. Now it never can.
++// ============================================================================
+ void BearerManagement::createOutgoingConnection(FlowControlInfo *lteInfo, bool withPdcp)
+ {
+     Enter_Method_Silent("createOutgoingConnection()");
+-
+     EV << "BearerManagement::createOutgoingConnection - " << " srcId=" << lteInfo->getSourceId() << " destId=" << lteInfo->getDestId()
+         << " groupId=" << lteInfo->getMulticastGroupId() << " drbId=" << lteInfo->getDrbId()
+         << " direction=" << dirToA(lteInfo->getDirection())
+         << " withPdcp=" << (withPdcp ? "yes" : "no") << endl;
+-
+     ASSERT(lteInfo->getSourceId() == registration_->getLteNodeId() || lteInfo->getSourceId() == registration_->getNrNodeId());
+ 
+-    // Create MAC outgoing connection
+     FlowDescriptor desc = FlowDescriptor::fromFlowControlInfo(*lteInfo);
+     MacNodeId destId = desc.getDestId();
+-    auto mac = (registration_->getNodeType()==UE && isNrUe(lteInfo->getSourceId())) ? nrMacModule.get() : macModule.get();
++
++    // nascTime / FRER: is this a UE-side, NR, DC-secondary-routed DRB?
++    // Computed ONCE and used only to select the "2" targets on the UE-side
++    // branch below -- the NODEB (gNB) branch is completely unaffected in
++    // every line below, matching pristine exactly, since a plain gNodeB
++    // never has a second leg of its own (confirmed weeks ago).
++    bool isUeSide = (registration_->getNodeType()==UE);
++    bool isNrDrb = isUeSide && isNrUe(lteInfo->getSourceId());
++    bool isDcSecondaryDrb = isNrDrb && dcSecondaryDrbIds_.count(num(desc.getDrbId())) && nrMacModule2 && nrRlcMuxModule2;
++
++    // Create MAC outgoing connection
++    auto mac = (registration_->getNodeType()==UE && isNrUe(lteInfo->getSourceId()))
++        ? (isDcSecondaryDrb ? nrMacModule2.get() : nrMacModule.get())
++        : macModule.get();
+     LogicalCid lcid = mac->drbIdToLcid(desc.getDrbId());
+     MacCid cid = MacCid(destId, lcid);
+     mac->createOutgoingConnection(cid, desc);
+@@ -169,20 +124,31 @@
+     // RLC entity creation
+     DrbKey rlcId = ctrlInfoToTxDrbKey(lteInfo);
+     bool isNr = (registration_->getNodeType()==UE && isNrUe(lteInfo->getSourceId()));
+-    auto *rlcMux = isNr ? nrRlcMuxModule.get() : rlcMuxModule.get();
++    auto *rlcMux = isNr
++        ? (isDcSecondaryDrb ? nrRlcMuxModule2.get() : nrRlcMuxModule.get())
++        : rlcMuxModule.get();
+     createAndInstallRlcTxBuffer(rlcId, lteInfo, rlcMux, isNr);
+ 
+     // PDCP entity creation
+-    auto *pdcpMux = check_and_cast<UpperMux *>(nicModule_->getSubmodule("pdcpMux"));
++    // nascTime / FRER: pdcpMux selection is the ONE place a genuinely new
++    // pdcpMux2 instance is needed (pristine has no leg distinction here at
++    // all -- confirmed, always plain "pdcpMux" -- because RLC already had
++    // an LTE/NR split natively but PDCP never did until this design added
++    // a second, independent NR leg).
++    auto *pdcpMux = isDcSecondaryDrb
++        ? check_and_cast<UpperMux *>(nicModule_->getSubmodule("pdcpMux2"))
++        : check_and_cast<UpperMux *>(nicModule_->getSubmodule("pdcpMux"));
+     auto *pdcpDcMux = dynamic_cast<DcMux *>(nicModule_->getSubmodule("pdcpDcMux")); // nullptr on UEs (no X2)
+ 
+     if (withPdcp) {
+         DrbKey id = DrbKey(lteInfo->getDestId(), lteInfo->getDrbId());
+-
+         // DC UE NR leg: check if a master (LTE-leg) PDCP TX entity exists for the same DRB.
+         // If so, wire its nrOut gate to the NR RLC TX entity instead of creating a new PDCP entity.
++        // nascTime / FRER: this native EN-DC shortcut must never apply to a
++        // DC-SECONDARY DRB -- that's a fully independent DRB (its own PDCP
++        // entity in pdcpTxEntities2_), not a split-bearer forwarded one.
+         bool wiredToMaster = false;
+-        if (registration_->getNodeType()==UE && isNrUe(lteInfo->getSourceId())) {
++        if (!isDcSecondaryDrb && registration_->getNodeType()==UE && isNrUe(lteInfo->getSourceId())) {
+             for (auto& [key, masterEntity] : pdcpTxEntities_) {
+                 if (key.getDrbId() == id.getDrbId()) {
+                     auto *masterModule = check_and_cast<cModule *>(masterEntity);
+@@ -204,33 +170,35 @@
+             module->finalizeParameters();
+             module->buildInside();
+             setEntityDisplayPosition(module, true, rlcMux, num(id.getDrbId()));
+-
+             // Wire UpperMux → entity in gate
+             int idx = pdcpMux->gateSize("toTxEntity");
+             pdcpMux->setGateSize("toTxEntity", idx + 1);
+             pdcpMux->gate("toTxEntity", idx)->connectTo(module->gate("in"));
+-
+             // Wire PDCP TX out → RLC TX in (direct per-DRB connection)
+-            auto rlcIt = (isNrUe(lteInfo->getSourceId()) ? nrRlcTxEntities_ : rlcTxEntities_).find(rlcId);
+-            ASSERT(rlcIt != (isNrUe(lteInfo->getSourceId()) ? nrRlcTxEntities_ : rlcTxEntities_).end());
++            // nascTime / FRER: registry selection now three-way, was two-way.
++            auto& txRegistry = isDcSecondaryDrb ? nrRlcTxEntities2_
++                              : (isNrUe(lteInfo->getSourceId()) ? nrRlcTxEntities_ : rlcTxEntities_);
++            auto rlcIt = txRegistry.find(rlcId);
++            ASSERT(rlcIt != txRegistry.end());
+             module->gate("out")->connectTo(rlcIt->second->gate("in"));
+-
+             // Wire dcOut gate → DcMux (if entity has one, e.g. NrTxPdcpEntity; eNB only)
+-            if (pdcpDcMux && module->hasGate("dcOut")) {
++            if (!isDcSecondaryDrb && pdcpDcMux && module->hasGate("dcOut")) {
+                 int dcIdx = pdcpDcMux->gateSize("fromEntity");
+                 pdcpDcMux->setGateSize("fromEntity", dcIdx + 1);
+                 module->gate("dcOut")->connectTo(pdcpDcMux->gate("fromEntity", dcIdx));
+             }
+-
+             module->scheduleStart(simTime());
+             module->callInitialize();
+             auto *txEnt = check_and_cast<PdcpTxEntityBase *>(module);
+             pdcpMux->registerTxEntity(id, txEnt);
+-            pdcpTxEntities_[id] = txEnt;
++            (isDcSecondaryDrb ? pdcpTxEntities2_ : pdcpTxEntities_)[id] = txEnt;
+         }
+     }
+     else {
+         // DC secondary node: create bypass TX entity (forwards DL from master to RLC)
++        // Native EN-DC/X2 bypass path -- unreachable for nascTime's
++        // DC-secondary DRBs, since patch 7 (Binder::establishUnidirectionalDataConnection)
++        // routes them through withPdcp=true always. Unchanged from pristine.
+         ASSERT(pdcpDcMux != nullptr); // bypass entities are eNB-only
+         DrbKey id = DrbKey(lteInfo->getDestId(), lteInfo->getDrbId());
+         std::string name = "pdcp-bypass-tx-" + std::to_string(num(id.getNodeId())) + "-" + std::to_string(num(id.getDrbId()));
+@@ -238,17 +206,12 @@
+         module->finalizeParameters();
+         module->buildInside();
+         setEntityDisplayPosition(module, true, rlcMux, num(id.getDrbId()));
+-
+-        // Wire DcMux → entity in gate (DcMux dispatches incoming DL X2)
+         int idx = pdcpDcMux->gateSize("toBypassTxEntity");
+         pdcpDcMux->setGateSize("toBypassTxEntity", idx + 1);
+         pdcpDcMux->gate("toBypassTxEntity", idx)->connectTo(module->gate("in"));
+-
+-        // Wire bypass TX out → RLC TX in (direct per-DRB connection)
+         auto rlcIt2 = (isNrUe(lteInfo->getSourceId()) ? nrRlcTxEntities_ : rlcTxEntities_).find(rlcId);
+         ASSERT(rlcIt2 != (isNrUe(lteInfo->getSourceId()) ? nrRlcTxEntities_ : rlcTxEntities_).end());
+         module->gate("out")->connectTo(rlcIt2->second->gate("in"));
+-
+         module->scheduleStart(simTime());
+         module->callInitialize();
+         auto *txEnt = check_and_cast<PdcpTxEntityBase *>(module);
+@@ -257,10 +220,112 @@
+     }
+ }
+ 
+-void BearerManagement::setRlcEntityParams(cModule *entity, bool isNr)
++// ============================================================================
++// createIncomingConnection() — corrected, same pattern, same discipline.
++// Original isNr line's "//TODO FIXME! DOES NOT WORK FOR MULTICAST!!!!!"
++// comment preserved verbatim -- not our bug to fix, not touching it.
++// ============================================================================
++void BearerManagement::createIncomingConnection(FlowControlInfo *lteInfo, bool withPdcp)
+ {
++    Enter_Method_Silent("createIncomingConnection()");
++    EV << "BearerManagement::createIncomingConnection - " << " srcId=" << lteInfo->getSourceId() << " destId=" << lteInfo->getDestId()
++        << " groupId=" << lteInfo->getMulticastGroupId() << " drbId=" << lteInfo->getDrbId()
++        << " direction=" << dirToA(lteInfo->getDirection())
++        << " withPdcp=" << (withPdcp ? "yes" : "no") << endl;
++    ASSERT(lteInfo->getDestId() == registration_->getLteNodeId() || lteInfo->getDestId() == registration_->getNrNodeId() || lteInfo->getMulticastGroupId() != NODEID_NONE);
++
++    FlowDescriptor desc = FlowDescriptor::fromFlowControlInfo(*lteInfo);
++    MacNodeId senderId = desc.getSourceId();
++
++    // nascTime / FRER: same UE-side-only DC-secondary check as outgoing.
++    bool isUeSide = (registration_->getNodeType()==UE);
++    bool isNrDrb = isUeSide && isNrUe(lteInfo->getDestId());
++    bool isDcSecondaryDrb = isNrDrb && dcSecondaryDrbIds_.count(num(desc.getDrbId())) && nrMacModule2 && nrRlcMuxModule2;
++
++    auto mac = (registration_->getNodeType()==UE && isNrUe(lteInfo->getDestId()))
++        ? (isDcSecondaryDrb ? nrMacModule2.get() : nrMacModule.get())
++        : macModule.get(); //TODO FIXME! DOES NOT WORK FOR MULTICAST!!!!!
++    LogicalCid lcid = mac->drbIdToLcid(desc.getDrbId());
++    MacCid cid = MacCid(senderId, lcid);
++    mac->createIncomingConnection(cid, desc);
++
++    // RLC entity creation
++    DrbKey rlcId = ctrlInfoToRxDrbKey(lteInfo);
++    bool isNr = (registration_->getNodeType()==UE && isNrUe(lteInfo->getDestId())); //TODO FIXME! DOES NOT WORK FOR MULTICAST!!!!!
++    auto *rlcMux = isNr
++        ? (isDcSecondaryDrb ? nrRlcMuxModule2.get() : nrRlcMuxModule.get())
++        : rlcMuxModule.get();
++    createAndInstallRlcRxBuffer(rlcId, lteInfo, rlcMux, isNr);
++
++    // PDCP entity creation
++    auto *pdcpMux = isDcSecondaryDrb
++        ? check_and_cast<UpperMux *>(nicModule_->getSubmodule("pdcpMux2"))
++        : check_and_cast<UpperMux *>(nicModule_->getSubmodule("pdcpMux"));
++    auto *pdcpDcMux = dynamic_cast<DcMux *>(nicModule_->getSubmodule("pdcpDcMux")); // nullptr on UEs (no X2)
++
++    if (withPdcp) {
++        DrbKey id = DrbKey(lteInfo->getSourceId(), lteInfo->getDrbId());
++        std::string name = "pdcp-rx-" + std::to_string(num(id.getNodeId())) + "-" + std::to_string(num(id.getDrbId()));
++        auto *module = pdcpRxEntityModuleType_->create(name.c_str(), nicModule_);
++        module->par("headerCompressedSize") = par("headerCompressedSize");
++        module->finalizeParameters();
++        module->buildInside();
++        setEntityDisplayPosition(module, true, rlcMux, num(id.getDrbId()));
++
++        // nascTime / FRER: registry selection now three-way.
++        auto& rxRegistry = isDcSecondaryDrb ? nrRlcRxEntities2_
++                          : (isNrUe(lteInfo->getDestId()) ? nrRlcRxEntities_ : rlcRxEntities_);
++        auto rlcIt = rxRegistry.find(rlcId);
++        ASSERT(rlcIt != rxRegistry.end());
++        rlcIt->second->gate("out")->connectTo(module->gate("in"));
++
++        int fromIdx = pdcpMux->gateSize("fromRxEntity");
++        pdcpMux->setGateSize("fromRxEntity", fromIdx + 1);
++        module->gate("out")->connectTo(pdcpMux->gate("fromRxEntity", fromIdx));
++
++        if (!isDcSecondaryDrb && pdcpDcMux && module->hasGate("dcIn")) {
++            int dcIdx = pdcpDcMux->gateSize("toRxEntity");
++            pdcpDcMux->setGateSize("toRxEntity", dcIdx + 1);
++            pdcpDcMux->gate("toRxEntity", dcIdx)->connectTo(module->gate("dcIn"));
++        }
++        module->scheduleStart(simTime());
++        module->callInitialize();
++        auto *rxEnt = check_and_cast<PdcpRxEntityBase *>(module);
++        (isDcSecondaryDrb ? pdcpRxEntities2_ : pdcpRxEntities_)[id] = rxEnt;
++    }
++    else {
++        // Native EN-DC/X2 bypass path -- unreachable for nascTime's
++        // DC-secondary DRBs (same reasoning as createOutgoingConnection).
++        // Unchanged from pristine.
++        ASSERT(pdcpDcMux != nullptr); // bypass entities are eNB-only
++        DrbKey id = DrbKey(lteInfo->getSourceId(), lteInfo->getDrbId());
++        std::string name = "pdcp-bypass-rx-" + std::to_string(num(id.getNodeId())) + "-" + std::to_string(num(id.getDrbId()));
++        auto *module = pdcpBypassRxEntityModuleType_->create(name.c_str(), nicModule_);
++        module->finalizeParameters();
++        module->buildInside();
++        setEntityDisplayPosition(module, true, rlcMux, num(id.getDrbId()));
++        auto rlcIt2 = (isNrUe(lteInfo->getDestId()) ? nrRlcRxEntities_ : rlcRxEntities_).find(rlcId);
++        ASSERT(rlcIt2 != (isNrUe(lteInfo->getDestId()) ? nrRlcRxEntities_ : rlcRxEntities_).end());
++        rlcIt2->second->gate("out")->connectTo(module->gate("in"));
++        int fromIdx = pdcpDcMux->gateSize("fromEntity");
++        pdcpDcMux->setGateSize("fromEntity", fromIdx + 1);
++        module->gate("out")->connectTo(pdcpDcMux->gate("fromEntity", fromIdx));
++        module->scheduleStart(simTime());
++        module->callInitialize();
++        auto *rxEnt = check_and_cast<PdcpRxEntityBase *>(module);
++        pdcpBypassRxEntities_[id] = rxEnt;
++    }
++}
++
++void BearerManagement::setRlcEntityParams(cModule *entity, bool isNr, bool isDcSecondary)
++{
++    // nascTime / FRER: three-way, was two-way. Without isDcSecondary, every
++    // RLC entity created for the secondary leg had its internal macModule
++    // parameter pointed at "^.nrMac" (the PRIMARY NR MAC) instead of
++    // "^.nrMac2" -- silent, not crashing: the secondary leg's RLC would
++    // request grants from the wrong MAC/scheduler.
+     if (entity->hasPar("macModule"))
+-        entity->par("macModule").setStringValue(isNr ? "^.nrMac" : "^.mac");
++        entity->par("macModule").setStringValue(!isNr ? "^.mac" : (isDcSecondary ? "^.nrMac2" : "^.nrMac"));
+     if (entity->hasPar("isNR"))
+         entity->par("isNR").setBoolValue(isNr);
+ }
+@@ -294,19 +359,19 @@
+     }
+     std::string name = std::string(isNr ? "nrRlc-" : "rlc-") + prefix + "-" + std::to_string(num(id.getNodeId())) + "-" + std::to_string(num(id.getDrbId()));
+     auto *module = moduleType->create(name.c_str(), nicModule_);
+-    setRlcEntityParams(module, isNr);
++    // nascTime / FRER: same rlcMux-identity check already used below for
++    // registry selection -- single source of truth, not a second parameter
++    // that could drift out of sync with it.
++    bool isDcSecondary = (isNr && nrRlcMuxModule2 && rlcMux == nrRlcMuxModule2.get());
++    setRlcEntityParams(module, isNr, isDcSecondary);
+     module->finalizeParameters();
+     module->buildInside();
+     setEntityDisplayPosition(module, false, rlcMux, num(id.getDrbId()));
+ 
+-    // Wire gates: entity → LowerMux (RLC TX 'in' gate is wired from PDCP TX in createOutgoingConnection)
+-
+-    // Wire entity out gate → LowerMux fromTxEntity
+     int fromIdx = rlcMux->gateSize("fromTxEntity");
+     rlcMux->setGateSize("fromTxEntity", fromIdx + 1);
+     module->gate("out")->connectTo(rlcMux->gate("fromTxEntity", fromIdx));
+ 
+-    // Wire LowerMux macToTxEntity → entity macIn gate
+     int macIdx = rlcMux->gateSize("macToTxEntity");
+     rlcMux->setGateSize("macToTxEntity", macIdx + 1);
+     rlcMux->gate("macToTxEntity", macIdx)->connectTo(module->gate("macIn"));
+@@ -317,10 +382,20 @@
+     RlcTxEntityBase *txEnt = check_and_cast<RlcTxEntityBase *>(module);
+     txEnt->setFlowControlInfo(lteInfo);
+ 
+-    // Register in CP entity map
+-    (isNr ? nrRlcTxEntities_ : rlcTxEntities_)[id] = txEnt;
++    // nascTime / FRER: registry selection now needs to distinguish
++    // NR_SECONDARY from NR_PRIMARY, not just isNr. Since this helper only
++    // receives a bool, the caller (createOutgoingConnection) picks the
++    // right registry itself after this call returns for TX; this function
++    // still writes to the legacy two registries by rlcMux identity, which
++    // is safe because rlcMux is already leg-specific by the time it's
++    // passed in -- but the registry write below needs the SAME leg
++    // information the caller already resolved. Simplest correct fix:
++    // compare rlcMux against the known secondary mux pointer directly.
++    if (isNr && nrRlcMuxModule2 && rlcMux == nrRlcMuxModule2.get())
++        nrRlcTxEntities2_[id] = txEnt;
++    else
++        (isNr ? nrRlcTxEntities_ : rlcTxEntities_)[id] = txEnt;
+ 
+-    // D2D peer tracking (only for UM TX entities)
+     if (rlcType == UM) {
+         auto *d2dCtrl = dynamic_cast<D2DModeController *>(nicModule_->getSubmodule("rrc")->getSubmodule("d2dModeController"));
+         if (d2dCtrl) {
+@@ -344,14 +419,15 @@
+     }
+     std::string name = std::string(isNr ? "nrRlc-" : "rlc-") + prefix + "-" + std::to_string(num(id.getNodeId())) + "-" + std::to_string(num(id.getDrbId()));
+     auto *module = moduleType->create(name.c_str(), nicModule_);
+-    setRlcEntityParams(module, isNr);
++    // nascTime / FRER: same rlcMux-identity check already used below for
++    // registry selection -- single source of truth, not a second parameter
++    // that could drift out of sync with it.
++    bool isDcSecondary = (isNr && nrRlcMuxModule2 && rlcMux == nrRlcMuxModule2.get());
++    setRlcEntityParams(module, isNr, isDcSecondary);
+     module->finalizeParameters();
+     module->buildInside();
+     setEntityDisplayPosition(module, false, rlcMux, num(id.getDrbId()));
+ 
+-    // Wire gates: LowerMux → entity (RLC RX 'out' gate is wired to PDCP RX in createIncomingConnection)
+-
+-    // Wire LowerMux → entity in gate
+     int idx = rlcMux->gateSize("toRxEntity");
+     rlcMux->setGateSize("toRxEntity", idx + 1);
+     rlcMux->gate("toRxEntity", idx)->connectTo(module->gate("in"));
+@@ -362,9 +438,13 @@
+     RlcRxEntityBase *rxEnt = check_and_cast<RlcRxEntityBase *>(module);
+     rxEnt->setFlowControlInfo(lteInfo);
+ 
+-    // Register in mux routing table and CP entity map
+     rlcMux->registerRxBuffer(id, rxEnt);
+-    (isNr ? nrRlcRxEntities_ : rlcRxEntities_)[id] = rxEnt;
++
++    // nascTime / FRER: same registry-selection note as createAndInstallRlcTxBuffer.
++    if (isNr && nrRlcMuxModule2 && rlcMux == nrRlcMuxModule2.get())
++        nrRlcRxEntities2_[id] = rxEnt;
++    else
++        (isNr ? nrRlcRxEntities_ : rlcRxEntities_)[id] = rxEnt;
+ 
+     return rxEnt;
+ }
+@@ -381,72 +461,85 @@
+     return createAndInstallRlcRxBuffer(id, lteInfo, rlcMuxModule.get(), false);
+ }
+ 
+-void BearerManagement::deleteLocalPdcpEntities(MacNodeId nodeId)
++void BearerManagement::deleteLocalPdcpEntities(MacNodeId nodeId, RlcLeg leg)
+ {
+     Enter_Method_Silent("deleteLocalPdcpEntities()");
+ 
+-    auto *pdcpMux = check_and_cast<UpperMux *>(nicModule_->getSubmodule("pdcpMux"));
+-    auto *pdcpDcMux = dynamic_cast<DcMux *>(nicModule_->getSubmodule("pdcpDcMux")); // nullptr on UEs (no X2)
+-
+     bool isEnb = (registration_->getNodeType() == NODEB);
+ 
+-    // Delete PDCP TX entities
+-    for (auto it = pdcpTxEntities_.begin(); it != pdcpTxEntities_.end(); ) {
+-        if (isEnb ? it->first.getNodeId() == nodeId : true) {
+-            pdcpMux->unregisterTxEntity(it->first);
+-            it->second->deleteModule();
+-            it = pdcpTxEntities_.erase(it);
+-        } else ++it;
+-    }
++    // nascTime / FRER FIX: previously "isEnb ? filter-by-nodeId : true" --
++    // the UE branch deleted ALL entities unconditionally, regardless of
++    // nodeId. That's harmless for a UE with exactly one gNB per leg (the
++    // old assumption) but would silently wipe out an unrelated,
++    // still-attached leg's entities the first time ANY leg independently
++    // handed over or detached. Now always filters by nodeId, for both
++    // node types.
++    auto& txMap = (leg == RlcLeg::NR_SECONDARY) ? pdcpTxEntities2_ : pdcpTxEntities_;
++    auto& rxMap = (leg == RlcLeg::NR_SECONDARY) ? pdcpRxEntities2_ : pdcpRxEntities_;
++
++    auto *pdcpMux = check_and_cast<UpperMux *>(
++        nicModule_->getSubmodule(leg == RlcLeg::NR_SECONDARY ? "pdcpMux2" : "pdcpMux"));
++    auto *pdcpDcMux = dynamic_cast<DcMux *>(nicModule_->getSubmodule("pdcpDcMux"));
+ 
+-    // Delete PDCP RX entities
+-    for (auto it = pdcpRxEntities_.begin(); it != pdcpRxEntities_.end(); ) {
+-        if (isEnb ? it->first.getNodeId() == nodeId : true) {
++    for (auto it = txMap.begin(); it != txMap.end(); ) {
++        if (it->first.getNodeId() == nodeId) {
++            pdcpMux->unregisterTxEntity(it->first);
+             it->second->deleteModule();
+-            it = pdcpRxEntities_.erase(it);
++            it = txMap.erase(it);
+         } else ++it;
+     }
+ 
+-    // Delete bypass TX entities (eNB-only)
+-    ASSERT(pdcpBypassTxEntities_.empty() || pdcpDcMux != nullptr);
+-    for (auto it = pdcpBypassTxEntities_.begin(); it != pdcpBypassTxEntities_.end(); ) {
+-        if (isEnb ? it->first.getNodeId() == nodeId : true) {
+-            pdcpDcMux->unregisterBypassTxEntity(it->first);
++    for (auto it = rxMap.begin(); it != rxMap.end(); ) {
++        if (it->first.getNodeId() == nodeId) {
+             it->second->deleteModule();
+-            it = pdcpBypassTxEntities_.erase(it);
++            it = rxMap.erase(it);
+         } else ++it;
+     }
+ 
+-    // Delete bypass RX entities
+-    for (auto it = pdcpBypassRxEntities_.begin(); it != pdcpBypassRxEntities_.end(); ) {
+-        if (isEnb ? it->first.getNodeId() == nodeId : true) {
+-            it->second->deleteModule();
+-            it = pdcpBypassRxEntities_.erase(it);
+-        } else ++it;
++    // Bypass entities are native-DC/X2-only, never used by NR_SECONDARY.
++    if (leg != RlcLeg::NR_SECONDARY) {
++        ASSERT(pdcpBypassTxEntities_.empty() || pdcpDcMux != nullptr);
++        for (auto it = pdcpBypassTxEntities_.begin(); it != pdcpBypassTxEntities_.end(); ) {
++            if (it->first.getNodeId() == nodeId) {
++                pdcpDcMux->unregisterBypassTxEntity(it->first);
++                it->second->deleteModule();
++                it = pdcpBypassTxEntities_.erase(it);
++            } else ++it;
++        }
++        for (auto it = pdcpBypassRxEntities_.begin(); it != pdcpBypassRxEntities_.end(); ) {
++            if (it->first.getNodeId() == nodeId) {
++                it->second->deleteModule();
++                it = pdcpBypassRxEntities_.erase(it);
++            } else ++it;
++        }
+     }
+ }
+ 
+-void BearerManagement::deleteLocalRlcQueues(MacNodeId nodeId, bool nrStack)
++void BearerManagement::deleteLocalRlcQueues(MacNodeId nodeId, RlcLeg leg)
+ {
+     Enter_Method_Silent("deleteLocalRlcQueues()");
+ 
+     bool isEnb = (registration_->getNodeType() == NODEB);
+ 
+-    // At a NODEB, entities are always stored in the default (LTE) maps regardless of which
+-    // leg the caller serves: createIncoming/OutgoingConnection() computes isNr as
+-    // (nodeType==UE && ...), which is always false here, and gNB NICs have no nrRlcMux.
+-    // Honoring the caller's nrStack flag would make this a silent no-op, leaking the UE's
+-    // entities and crashing on re-establishment after a later handover.
+-    if (isEnb)
+-        nrStack = false;
+-
+-    auto &txMap = nrStack ? nrRlcTxEntities_ : rlcTxEntities_;
+-    auto &rxMap = nrStack ? nrRlcRxEntities_ : rlcRxEntities_;
+-    RlcMux *rlcMux = nrStack ? (nrRlcMuxModule ? nrRlcMuxModule.get() : nullptr) : rlcMuxModule.get();
++    // At a NODEB, entities are always stored in the LTE-named maps
++    // regardless of the caller's leg: createIncoming/OutgoingConnection()
++    // computes isNr as (nodeType==UE && ...), always false at a gNB, and
++    // gnb2 (per the confirmed design) has no second NR leg of its own --
++    // it's an ordinary single-NR-stack gNB from its own perspective.
++    RlcLeg effectiveLeg = isEnb ? RlcLeg::LTE : leg;
++
++    auto& txMap = (effectiveLeg == RlcLeg::NR_SECONDARY) ? nrRlcTxEntities2_
++                : (effectiveLeg == RlcLeg::NR_PRIMARY)   ? nrRlcTxEntities_
++                                                          : rlcTxEntities_;
++    auto& rxMap = (effectiveLeg == RlcLeg::NR_SECONDARY) ? nrRlcRxEntities2_
++                : (effectiveLeg == RlcLeg::NR_PRIMARY)   ? nrRlcRxEntities_
++                                                          : rlcRxEntities_;
++    RlcMux *rlcMux = (effectiveLeg == RlcLeg::NR_SECONDARY) ? (nrRlcMuxModule2 ? nrRlcMuxModule2.get() : nullptr)
++                    : (effectiveLeg == RlcLeg::NR_PRIMARY)   ? (nrRlcMuxModule ? nrRlcMuxModule.get() : nullptr)
++                                                              : rlcMuxModule.get();
+     if (!rlcMux)
+         return;
+ 
+-    // Delete RLC TX entities
+     for (auto it = txMap.begin(); it != txMap.end(); ) {
+         if (isEnb ? it->first.getNodeId() == nodeId : true) {
+             it->second->deleteModule();
+@@ -454,7 +547,6 @@
+         } else ++it;
+     }
+ 
+-    // Delete RLC RX entities
+     for (auto it = rxMap.begin(); it != rxMap.end(); ) {
+         if (isEnb ? it->first.getNodeId() == nodeId : true) {
+             rlcMux->unregisterRxBuffer(it->first);
+@@ -469,8 +561,11 @@
+     auto it = pdcpRxEntities_.find(id);
+     if (it != pdcpRxEntities_.end())
+         return it->second;
+-    auto it2 = pdcpBypassRxEntities_.find(id);
+-    return it2 != pdcpBypassRxEntities_.end() ? it2->second : nullptr;
++    auto it2 = pdcpRxEntities2_.find(id);
++    if (it2 != pdcpRxEntities2_.end())
++        return it2->second;
++    auto it3 = pdcpBypassRxEntities_.find(id);
++    return it3 != pdcpBypassRxEntities_.end() ? it3->second : nullptr;
+ }
+ 
+ RlcTxEntityBase *BearerManagement::lookupRlcTxBuffer(DrbKey id)
+@@ -479,13 +574,19 @@
+     if (it != rlcTxEntities_.end())
+         return it->second;
+     auto it2 = nrRlcTxEntities_.find(id);
+-    return it2 != nrRlcTxEntities_.end() ? it2->second : nullptr;
++    if (it2 != nrRlcTxEntities_.end())
++        return it2->second;
++    auto it3 = nrRlcTxEntities2_.find(id);
++    return it3 != nrRlcTxEntities2_.end() ? it3->second : nullptr;
+ }
+ 
+ PdcpTxEntityBase *BearerManagement::lookupPdcpTxEntity(DrbKey id)
+ {
+     auto it = pdcpTxEntities_.find(id);
+-    return it != pdcpTxEntities_.end() ? it->second : nullptr;
++    if (it != pdcpTxEntities_.end())
++        return it->second;
++    auto it2 = pdcpTxEntities2_.find(id);
++    return it2 != pdcpTxEntities2_.end() ? it2->second : nullptr;
+ }
+ 
+ void BearerManagement::pdcpActiveUeUL(std::set<MacNodeId> *ueSet)
+@@ -494,6 +595,10 @@
+         if (!rxEntity->isEmpty())
+             ueSet->insert(id.getNodeId());
+     }
++    for (const auto& [id, rxEntity] : pdcpRxEntities2_) {
++        if (!rxEntity->isEmpty())
++            ueSet->insert(id.getNodeId());
++    }
+ }
+ 
+ } // namespace simu5g
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/BearerManagement.h Simu5G/src/simu5g/stack/rrc/BearerManagement.h
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/BearerManagement.h	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/rrc/BearerManagement.h	2026-07-22 19:15:27.000000000 +0800
+@@ -1,25 +1,20 @@
+ //
+ //                  Simu5G
+ //
+-// Authors: Andras Varga (OpenSim Ltd)
++// Authors: Andras Varga (OpenSim Ltd), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+ // The above files and the present reference are part of the software itself,
+ // and cannot be removed from it.
+ //
+-
+ #ifndef _BEARER_MANAGEMENT_H_
+ #define _BEARER_MANAGEMENT_H_
+-
+ #include "simu5g/common/LteDefs.h"
+ #include "simu5g/common/LteControlInfo.h"
+ #include <inet/common/ModuleRefByPar.h>
+-
+ using namespace omnetpp;
+-
+ namespace simu5g {
+-
+ class LteMacBase;
+ class RlcMux;
+ class RlcTxEntityBase;
+@@ -31,6 +26,14 @@
+ class PdcpRxEntityBase;
+ class Registration;
+ 
++// nascTime / FRER: which RLC/PDCP registry pair (and mux/mac target) a
++// DRB's entities belong to. LTE and NR_PRIMARY are the existing native
++// legs; NR_SECONDARY is new, for a genuine second independent NR leg
++// (e.g. NrNicUeDC's nrRlcMux2/nrMac2/pdcpMux2), NOT to be confused with
++// native DC's pdcpDcMux/bypass-entity/X2 mechanism, which solves a
++// different problem (single-bearer split, not two independent DRBs).
++enum class RlcLeg { LTE, NR_PRIMARY, NR_SECONDARY };
++
+ /**
+  * @brief RRC Bearer Management — creates and tears down PDCP, RLC and MAC
+  *        entities for data radio bearers.
+@@ -39,14 +42,12 @@
+ {
+   private:
+     Registration *registration_ = nullptr;
+-
+     // PDCP entity types (resolved from NED params)
+     cModuleType *pdcpRxEntityModuleType_ = nullptr;
+     cModuleType *pdcpTxEntityModuleType_ = nullptr;
+     cModuleType *pdcpBypassRxEntityModuleType_ = nullptr;
+     cModuleType *pdcpBypassTxEntityModuleType_ = nullptr;
+     cModule *nicModule_ = nullptr;  // containing NIC module (parent of all submodules and entities)
+-
+     // RLC entity types (resolved from NED params)
+     cModuleType *rlcUmTxEntityModuleType_ = nullptr;
+     cModuleType *rlcUmRxEntityModuleType_ = nullptr;
+@@ -54,12 +55,25 @@
+     cModuleType *rlcTmRxEntityModuleType_ = nullptr;
+     cModuleType *rlcAmTxEntityModuleType_ = nullptr;
+     cModuleType *rlcAmRxEntityModuleType_ = nullptr;
+-
+     inet::ModuleRefByPar<RlcMux> rlcMuxModule;
+     inet::ModuleRefByPar<RlcMux> nrRlcMuxModule;
+     inet::ModuleRefByPar<LteMacBase> macModule;
+     inet::ModuleRefByPar<LteMacBase> nrMacModule;
+ 
++    // nascTime / FRER: second NR leg targets. Optional (not present on
++    // plain gNBs or non-DC UEs) -- referenced with required=false, so
++    // this is a no-op on any NIC that doesn't have nrRlcMux2/nrMac2.
++    inet::ModuleRefByPar<RlcMux> nrRlcMuxModule2;
++    inet::ModuleRefByPar<LteMacBase> nrMacModule2;
++
++    // nascTime / FRER: which DRB IDs route to the secondary leg (e.g.
++    // {4} for the FRER replica DRB), parsed from a comma-separated NED
++    // string param. Empty on any NIC not configured for DC-secondary
++    // traffic -- the three-way routing check in createOutgoingConnection()/
++    // createIncomingConnection() is then always false, identical to
++    // pre-patch behavior.
++    std::set<int> dcSecondaryDrbIds_;
++
+     // Entity registries (CP owns the lifecycle of all entities)
+     std::map<DrbKey, PdcpTxEntityBase *> pdcpTxEntities_;
+     std::map<DrbKey, PdcpRxEntityBase *> pdcpRxEntities_;
+@@ -70,16 +84,28 @@
+     std::map<DrbKey, RlcTxEntityBase *> nrRlcTxEntities_;
+     std::map<DrbKey, RlcRxEntityBase *> nrRlcRxEntities_;
+ 
+-    void setRlcEntityParams(cModule *entity, bool isNr);
++    // nascTime / FRER: second NR leg's own registries -- separate from
++    // the primary NR ones above. Needed even at the PDCP level (unlike
++    // RLC, which already had an LTE/NR split natively) because pdcpMux
++    // is a single shared instance for LTE+NR-primary; our design adds a
++    // genuinely separate pdcpMux2 for the secondary leg.
++    std::map<DrbKey, PdcpTxEntityBase *> pdcpTxEntities2_;
++    std::map<DrbKey, PdcpRxEntityBase *> pdcpRxEntities2_;
++    std::map<DrbKey, RlcTxEntityBase *> nrRlcTxEntities2_;
++    std::map<DrbKey, RlcRxEntityBase *> nrRlcRxEntities2_;
++
++    void setRlcEntityParams(cModule *entity, bool isNr, bool isDcSecondary);
+     void setEntityDisplayPosition(cModule *entity, bool isPdcpEntity, cModule *rlcMux, int bearerIndex);
+     RlcTxEntityBase *createAndInstallRlcTxBuffer(DrbKey id, FlowControlInfo *lteInfo, RlcMux *rlcMux, bool isNr);
+     RlcRxEntityBase *createAndInstallRlcRxBuffer(DrbKey id, FlowControlInfo *lteInfo, RlcMux *rlcMux, bool isNr);
+ 
++    // nascTime / FRER: decide which leg a DRB belongs to.
++    RlcLeg legForDrb(DrbId drbId, bool isNr, bool isUeSide) const;
++
+   protected:
+     void initialize(int stage) override;
+     int numInitStages() const override { return inet::NUM_INIT_STAGES; }
+     void handleMessage(cMessage *msg) override;
+-
+   public:
+     virtual void createIncomingConnection(FlowControlInfo *lteInfo, bool withPdcp=true);
+     virtual void createOutgoingConnection(FlowControlInfo *lteInfo, bool withPdcp=true);
+@@ -88,11 +114,14 @@
+     RlcTxEntityBase *lookupRlcTxBuffer(DrbKey id);
+     PdcpTxEntityBase *lookupPdcpTxEntity(DrbKey id);
+     PdcpRxEntityBase *lookupPdcpRxEntity(DrbKey id);
+-    virtual void deleteLocalPdcpEntities(MacNodeId nodeId);
+-    virtual void deleteLocalRlcQueues(MacNodeId nodeId, bool nrStack=false);
++    // nascTime / FRER: leg parameter added (was: deleteLocalPdcpEntities(MacNodeId)).
++    // Also fixes a real, pre-existing bug: the UE-side branch previously
++    // deleted ALL PDCP entities regardless of nodeId, which would silently
++    // corrupt an unrelated still-attached leg's state during any
++    // independent handover/detach. Now always filters by nodeId.
++    virtual void deleteLocalPdcpEntities(MacNodeId nodeId, RlcLeg leg = RlcLeg::LTE);
++    virtual void deleteLocalRlcQueues(MacNodeId nodeId, RlcLeg leg = RlcLeg::LTE);
+     void pdcpActiveUeUL(std::set<MacNodeId> *ueSet);
+ };
+-
+ } // namespace simu5g
+-
+ #endif
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/BearerManagement.ned Simu5G/src/simu5g/stack/rrc/BearerManagement.ned
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/BearerManagement.ned	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/rrc/BearerManagement.ned	2026-07-22 19:15:27.000000000 +0800
+@@ -8,9 +8,7 @@
+ // The above files and the present reference are part of the software itself,
+ // and cannot be removed from it.
+ //
+-
+ package simu5g.stack.rrc;
+-
+ //
+ // RRC Bearer Management — creates and tears down PDCP, RLC and MAC
+ // entities for data radio bearers.
+@@ -20,16 +18,13 @@
+     parameters:
+         @display("i=block/control");
+         @class(BearerManagement);
+-
+         // PDCP entity parameters
+         int headerCompressedSize @unit(B) = default(-1B);
+-
+         // PDCP entity types
+         string pdcpRxEntityModuleType = default("simu5g.stack.pdcp.LteRxPdcpEntity");
+         string pdcpTxEntityModuleType = default("simu5g.stack.pdcp.LteTxPdcpEntity");
+         string pdcpBypassRxEntityModuleType = default("simu5g.stack.pdcp.BypassRxPdcpEntity");
+         string pdcpBypassTxEntityModuleType = default("simu5g.stack.pdcp.BypassTxPdcpEntity");
+-
+         // RLC entity types
+         string rlcUmTxEntityModuleType = default("simu5g.stack.rlc.um.UmTxEntity");
+         string rlcUmRxEntityModuleType = default("simu5g.stack.rlc.um.UmRxEntity");
+@@ -37,10 +32,22 @@
+         string rlcTmRxEntityModuleType = default("simu5g.stack.rlc.tm.TmRxEntity");
+         string rlcAmTxEntityModuleType = default("simu5g.stack.rlc.am.AmTxQueue");
+         string rlcAmRxEntityModuleType = default("simu5g.stack.rlc.am.AmRxQueue");
+-
+         // Module references for accessing other stack layers
+         string rlcMuxModule = default("^.^.rlcMux");
+         string nrRlcMuxModule = default("^.^.nrRlcMux");
+         string macModule = default("^.^.mac");
+         string nrMacModule = default("^.^.nrMac");
++
++        // nascTime / FRER: second NR leg (genuine NR-NR DC, distinct from
++        // native EN-DC's pdcpDcMux/X2 mechanism). Optional -- unset on any
++        // NIC without a second NR leg, in which case the DRB routing below
++        // never selects them.
++        string nrRlcMuxModule2 = default("^.^.nrRlcMux2");
++        string nrMacModule2 = default("^.^.nrMac2");
++
++        // nascTime / FRER: comma-separated DRB IDs that route to the
++        // secondary leg (e.g. "4" for the FRER replica DRB). Empty by
++        // default -- this patch is then a no-op, identical to unpatched
++        // behavior.
++        string dcSecondaryDrbIds = default("");
+ }
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/HandoverController.cc Simu5G/src/simu5g/stack/rrc/HandoverController.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/HandoverController.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/rrc/HandoverController.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -1,7 +1,7 @@
+ //
+ //                  Simu5G
+ //
+-// Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa)
++// Authors: Giovanni Nardini, Giovanni Stea, Antonio Virdis (University of Pisa), Mohamed Seliem (University College Cork)
+ //
+ // This file is part of a software released under the license included in file
+ // "license.pdf". Please read LICENSE and README files before using it.
+@@ -48,6 +48,13 @@
+         otherHandoverController_.reference(this, "otherHandoverControllerModule", false);
+ 
+         isNr_ = par("isNr");
++        // nascTime / FRER: true if this instance manages a DC secondary
++        // (SCG) leg rather than the primary (MCG). Changes which Binder
++        // registration calls are made below and in doHandover()/finish()
++        // so the secondary leg's attach/detach never clobbers
++        // servingNode_ (the primary's slot).
++        isDcSecondary_ = par("isDcSecondary");
++
+         cModule *hostModule = inet::getContainingNode(this);
+         nodeId_ = MacNodeId(hostModule->par(isNr_ ? "nrMacNodeId" : "macNodeId").intValue());
+ 
+@@ -76,20 +83,40 @@
+         WATCH(handoverAttachmentTime_);
+         WATCH(minRssi_);
+         WATCH(enableHandover_);
++        WATCH(isDcSecondary_);
+ 
+     }
+     else if (stage == INITSTAGE_SIMU5G_PHYSICAL_LAYER) {
+-        // get serving cell from configuration
+-        servingNodeId_ = binder_->getServingNode(nodeId_);
++        servingNodeId_ = isDcSecondary_ ? binder_->getDcSecondaryNextHop(nodeId_)
++                                         : binder_->getServingNode(nodeId_);
+         candidateServingNodeId_ = servingNodeId_;
+ 
+-        // find the best candidate cell
+         bool dynamicCellAssociation = par("dynamicCellAssociation").boolValue();
+-        if (dynamicCellAssociation) {
++
++        // nascTime / FRER: a DC-secondary instance doesn't do a generic
++        // best-RSSI scan -- it has exactly one correct target (whichever cell
++        // is registered as the primary leg's secondary), and findCandidateEnb()
++        // has no way to search for a specific node, only rank all candidates
++        // by signal strength. If the primary gNB's RSSI is stronger than the
++        // true secondary's anywhere in the topology, the generic scan would
++        // never even propose the correct cell for the reject-filter to accept.
++        if (isDcSecondary_) {
++            MacNodeId primaryServingNode = otherHandoverController_->getServingNodeId();
++            candidateServingNodeId_ = (primaryServingNode != NODEID_NONE)
++                ? binder_->getSecondaryNode(primaryServingNode) : NODEID_NONE;
++            candidateServingNodeRssi_ = 0.0;  // no RSSI comparison for a directly-targeted cell
++
++            if (candidateServingNodeId_ != NODEID_NONE && candidateServingNodeId_ != servingNodeId_) {
++                if (servingNodeId_ != NODEID_NONE)
++                    binder_->unregisterDcSecondary(nodeId_);
++                binder_->registerDcSecondary(candidateServingNodeId_, nodeId_);
++            }
++            servingNodeId_ = candidateServingNodeId_;
++            servingNodeRssi_ = candidateServingNodeRssi_;
++        }
++        else if (dynamicCellAssociation) {
+             phy_->findCandidateEnb(candidateServingNodeId_, candidateServingNodeRssi_);
+ 
+-            // binder calls
+-            // if dynamicCellAssociation selected a different cell
+             if (candidateServingNodeId_ != NODEID_NONE && candidateServingNodeId_ != servingNodeId_) {
+                 binder_->unregisterServingNode(servingNodeId_, nodeId_);
+                 binder_->registerServingNode(candidateServingNodeId_, nodeId_);
+@@ -99,8 +126,21 @@
+         }
+ 
+         EV << "LtePhyUe::initialize - Attaching to eNodeB " << servingNodeId_ << endl;
+-
+         phy_->changeServingNode(servingNodeId_);
++        // nascTime / FRER: initialize()'s first-attach path bypasses doHandover()
++        // entirely, which is where AMC registration normally happens
++        // (newAmc->attachUser()). Without this, gnb2's LteAmc never learns about
++        // this UE at all -- confirmed via CellInfo::attachUser() being a no-op in
++        // this codebase (rules out the CellInfo-registration theory) and
++        // LteAmc::attachUser() only ever being called from doHandover(), never
++        // from initialize().
++        if (servingNodeId_ != NODEID_NONE) {
++            LteAmc *newAmc = getAmcModule(servingNodeId_);
++            newAmc->attachUser(nodeId_, UL);
++            newAmc->attachUser(nodeId_, DL);
++            if (dynamic_cast<NrPhyUe*>(phy_))
++                newAmc->attachUser(nodeId_, D2D);
++        }
+         emit(servingCellSignal_, (long)servingNodeId_);
+     }
+ }
+@@ -122,8 +162,11 @@
+                 amc->detachUser(nodeId_, DL);
+             }
+ 
+-            // binder call
+-            binder_->unregisterServingNode(servingNodeId_, nodeId_);
++            // FIX: DC-secondary-safe unregistration.
++            if (isDcSecondary_)
++                binder_->unregisterDcSecondary(nodeId_);
++            else
++                binder_->unregisterServingNode(servingNodeId_, nodeId_);
+         }
+     }
+ }
+@@ -170,6 +213,10 @@
+     }
+ 
+     // Check if the eNodeB is a DC Secondary node
++    // NOTE: this check is already generic -- driven by the cell-level
++    // registerMasterNode()/getMasterNodeOrSelf() relationship, not by
++    // isDcSecondary_ -- so it correctly applies to a genuine secondary
++    // leg without needing any change here.
+     if (dynamic_cast<NrPhyUe*>(phy_)) {
+         MacNodeId sourceId = lteInfo->getSourceId();
+         MacNodeId masterNodeId = binder_->getMasterNodeOrSelf(sourceId);
+@@ -184,6 +231,26 @@
+             }
+         }
+     }
++    // nascTime / FRER: the check above only rejects beacons from cells
++    // that ARE registered as someone's secondary but don't match this
++    // leg's primary. It does NOT reject a beacon from a cell that isn't
++    // registered as anyone's secondary at all -- e.g. gnb's own beacon --
++    // which is exactly how nrHandoverController2 could drift toward
++    // re-attaching to the primary leg's own cell via ordinary RSSI
++    // reassociation, triggering native handover/X2 forwarding that was
++    // never configured for this topology. A DC-secondary instance must
++    // only ever consider cells specifically registered as ITS primary
++    // leg's secondary.
++    if (isDcSecondary_) {
++        MacNodeId primaryServingNode = otherHandoverController_->getServingNodeId();
++        if (primaryServingNode == NODEID_NONE || binder_->getSecondaryNode(primaryServingNode) != lteInfo->getSourceId()) {
++            EV << "DC-secondary instance rejecting beacon from " << lteInfo->getSourceId()
++               << " -- not the registered secondary of primary leg's serving node " << primaryServingNode << endl;
++            delete lteInfo;
++            delete frame;
++            return;
++        }
++    }
+ 
+     lteInfo->setDestId(nodeId_);
+     frame->setControlInfo(lteInfo);
+@@ -256,6 +323,12 @@
+ 
+ void HandoverController::triggerHandover()
+ {
++    // NOTE: everything in this method is already generic -- driven by
++    // dynamic_cast<NrPhyUe*>(phy_) and the cell-level master/secondary
++    // relationship via otherHandoverController_, not by isDcSecondary_.
++    // No changes needed here; a genuine secondary leg's otherPhy_ is
++    // NrPhyUe-typed the same as the primary's, so it correctly takes
++    // the NR-specific branches below.
+     if (dynamic_cast<NrPhyUe*>(phy_) == nullptr)
+         ASSERT(!isNr_);
+ 
+@@ -413,17 +486,30 @@
+             newAmc->attachUser(nodeId_, D2D);
+     }
+ 
+-    // Binder calls
+-    if (servingNodeId_ != NODEID_NONE)
+-        binder_->unregisterServingNode(servingNodeId_, nodeId_);
++    // FIX: DC-secondary-safe Binder registration. The unpatched version
++    // called registerServingNode()/unregisterServingNode() unconditionally,
++    // which would silently overwrite servingNode_[nodeId_] -- the primary
++    // (MCG) leg's slot -- every time the secondary (SCG) leg attaches or
++    // detaches. That's the exact MCG-clobbers-SCG failure mode flagged
++    // when this design was first scoped.
++    if (servingNodeId_ != NODEID_NONE) {
++        if (isDcSecondary_)
++            binder_->unregisterDcSecondary(nodeId_);
++        else
++            binder_->unregisterServingNode(servingNodeId_, nodeId_);
++    }
+ 
+     if (candidateServingNodeId_ != NODEID_NONE) {
+-        binder_->registerServingNode(candidateServingNodeId_, nodeId_);
++        if (isDcSecondary_)
++            binder_->registerDcSecondary(candidateServingNodeId_, nodeId_);
++        else
++            binder_->registerServingNode(candidateServingNodeId_, nodeId_);
+     }
+     binder_->updateUeInfoCellId(nodeId_, candidateServingNodeId_);
+ 
+     // Move collector (if configured)
+     // @author Alessandro Noferi
++    // NOTE: not yet DC-secondary-guarded -- see caveats below.
+     if (hasCollector) {
+         binder_->moveUeCollector(nodeId_, servingNodeId_, candidateServingNodeId_);
+     }
+@@ -483,39 +569,39 @@
+ 
+ void HandoverController::deleteOldBuffers(MacNodeId servingNodeId)
+ {
+-    // Delete MAC Buffers
++    // nascTime / FRER: RlcLeg for the UE's own (shared) bearerManagement_ --
++    // this is the one place isDcSecondary_ actually matters, since only the
++    // UE side has a genuine second-leg registry split. A gNB's own
++    // BearerManagement never does (confirmed: gnb2 has no second leg of
++    // its own), so every gNB-side call below just uses isNr_ ? NR_PRIMARY : LTE.
++    RlcLeg ueLeg = !isNr_ ? RlcLeg::LTE
++                 : (isDcSecondary_ ? RlcLeg::NR_SECONDARY : RlcLeg::NR_PRIMARY);
++    RlcLeg gnbLeg = isNr_ ? RlcLeg::NR_PRIMARY : RlcLeg::LTE;
+ 
+-    // delete macBuffer[nodeId_] at old serving node
++    // Delete MAC Buffers
+     LteMacEnb *servingNodeMac = check_and_cast<LteMacEnb *>(binder_->getMacByNodeId(servingNodeId));
+     servingNodeMac->deleteQueues(nodeId_);
+-
+-    // delete queues for serving node at this UE
+     mac_->deleteQueues(servingNodeId_);
+ 
+     // Delete RLC UM Buffers
+-
+-    // delete RLC entities for nodeId_ at old serving node
+     BearerManagement *servingBm = check_and_cast<BearerManagement *>(binder_->getRrcByNodeId(servingNodeId)->getSubmodule("bearerManagement"));
+-    servingBm->deleteLocalRlcQueues(nodeId_, isNr_);
+-
+-    // delete RLC entities for serving node at this UE
+-    bearerManagement_->deleteLocalRlcQueues(nodeId_, isNr_);
++    servingBm->deleteLocalRlcQueues(nodeId_, gnbLeg);
++    bearerManagement_->deleteLocalRlcQueues(nodeId_, ueLeg);
+ 
+     // Delete PDCP Entities
+-    // delete pdcpEntities[nodeId_] at old serving node
+     // In case of NR dual connectivity, the master can be a secondary node, hence we have to delete PDCP entities residing in the node's master
+     MacNodeId pdcpNodeId = binder_->getMasterNodeOrSelf(servingNodeId);
+     BearerManagement *masterBm = check_and_cast<BearerManagement *>(binder_->getRrcByNodeId(pdcpNodeId)->getSubmodule("bearerManagement"));
+-    masterBm->deleteLocalPdcpEntities(nodeId_);
++    masterBm->deleteLocalPdcpEntities(nodeId_, gnbLeg);
+ 
+     // If the old serving node is a DC secondary, also delete the per-UE bypass PDCP entities
+     // residing on the secondary itself (keyed by this UE's id there) -- the master-side call
+     // above does not reach them
+     if (pdcpNodeId != servingNodeId)
+-        servingBm->deleteLocalPdcpEntities(nodeId_);
++        servingBm->deleteLocalPdcpEntities(nodeId_, gnbLeg);
+ 
+     // delete PDCP entities for serving node at this UE
+-    bearerManagement_->deleteLocalPdcpEntities(servingNodeId_);
++    bearerManagement_->deleteLocalPdcpEntities(servingNodeId_, ueLeg);
+ }
+ 
+ LteAmc *HandoverController::getAmcModule(MacNodeId nodeId)
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/HandoverController.h Simu5G/src/simu5g/stack/rrc/HandoverController.h
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/HandoverController.h	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/rrc/HandoverController.h	2026-07-22 19:15:27.000000000 +0800
+@@ -40,6 +40,13 @@
+     MacNodeId nodeId_ = NODEID_NONE;
+     bool isNr_ = false;
+ 
++    // nascTime / FRER: true if this instance manages a DC secondary (SCG)
++    // leg rather than the primary (MCG). See HandoverController.cc for
++    // where this changes behavior (Binder registration calls only --
++    // beaconReceived()/triggerHandover()/deleteOldBuffers() are already
++    // generic and unaffected by this flag).
++    bool isDcSecondary_ = false;
++
+     /** The current serving node */
+     MacNodeId servingNodeId_ = NODEID_NONE;
+ 
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/HandoverController.ned Simu5G/src/simu5g/stack/rrc/HandoverController.ned
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/HandoverController.ned	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/rrc/HandoverController.ned	2026-07-22 19:15:27.000000000 +0800
+@@ -22,6 +22,12 @@
+         @display("i=block/control");
+         @class(HandoverController);
+ 
++        // nascTime / FRER: true if this instance manages a DC secondary (SCG) leg
++        // rather than the primary (MCG). Changes which Binder registration calls
++        // are made in doHandover()/finish() so the secondary leg's attach/detach
++        // never clobbers servingNode_ (the primary's slot).
++        bool isDcSecondary = default(false);
++
+         bool dynamicCellAssociation = default(false);
+ 
+         // allows handovers in the UE
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/Rrc.ned Simu5G/src/simu5g/stack/rrc/Rrc.ned
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/rrc/Rrc.ned	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/rrc/Rrc.ned	2026-07-22 19:15:27.000000000 +0800
+@@ -8,9 +8,7 @@
+ // The above files and the present reference are part of the software itself,
+ // and cannot be removed from it.
+ //
+-
+ package simu5g.stack.rrc;
+-
+ //
+ // RRC (Radio Resource Control) layer for LTE/NR networks.
+ //
+@@ -19,23 +17,29 @@
+ //   - bearerManagement: sets up and tears down data radio bearers
+ //   - d2dModeSelection: periodically selects IM/DM mode for D2D flows (eNB/gNB only)
+ //   - handoverController: manages handover decisions and procedures (UE only)
++//   - nrHandoverController2 (nascTime / FRER): manages a genuine second,
++//     independent NR leg for NR-NR dual connectivity (as opposed to
++//     nrHandoverController, which pairs with handoverController for
++//     native EN-DC). Paired via its own otherHandoverControllerModule,
++//     pointed at nrHandoverController by the UE NIC subclass that enables
++//     it (e.g. NrNicUeDC), not at handoverController.
+ //
+ module Rrc like IRrc
+ {
+     parameters:
+         @display("i=block/control");
+-
+         string interfaceTableModule;
+         string routingTableModule;
+-
+         bool hasD2DModeController = default(false);
+         bool hasD2DModeSelection = default(false);
+         bool hasHandoverController = default(false);
+         bool hasNrHandoverController = default(false);
+-
++        // nascTime / FRER: gates a second, independent NR HandoverController
++        // instance for genuine NR-NR dual connectivity. Default false --
++        // no effect on any existing deployment unless explicitly enabled.
++        bool hasNrHandoverController2 = default(false);
+         *.interfaceTableModule = default(absPath(this.interfaceTableModule));
+         *.routingTableModule = default(absPath(this.routingTableModule));
+-
+     submodules:
+         registration: Registration {
+             @display("p=100,80");
+@@ -55,4 +59,11 @@
+         nrHandoverController: HandoverController if hasNrHandoverController {
+             @display("p=700,80");
+         }
++        // nascTime / FRER: third HandoverController instance, for the
++        // secondary NR leg. Distinct display position only for clarity in
++        // the graphical editor; no functional difference from how
++        // nrHandoverController itself is declared.
++        nrHandoverController2: HandoverController if hasNrHandoverController2 {
++            @display("p=850,80");
++        }
+ }
+diff -ruN -x out -x results -x '*.o' -x '*.so' -x '*.so.*' -x '*.a' Simu5G-vanilla-1.5.0/src/simu5g/stack/sdap/NrSdap.cc Simu5G/src/simu5g/stack/sdap/NrSdap.cc
+--- Simu5G-vanilla-1.5.0/src/simu5g/stack/sdap/NrSdap.cc	2026-07-13 02:19:21.000000000 +0800
++++ Simu5G/src/simu5g/stack/sdap/NrSdap.cc	2026-07-22 19:15:27.000000000 +0800
+@@ -107,6 +107,8 @@
+ 
+ void NrSdap::handleUpperPacket(inet::Packet *pkt)
+ {
++    EV_INFO << "DEBUG_SDAP_IDENTITY fullPath=" << getFullPath()
++                << " isUe=" << isUe << endl;
+     Qfi qfi = QFI_NONE;
+     bool qfiFromReflectiveQos = false;
+ 

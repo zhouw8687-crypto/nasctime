@@ -1,0 +1,38 @@
+//
+//                  Simu5G
+//
+// Copyright (C) 2019-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
+//
+// This file is part of a software released under the license included in file
+// "license.pdf". Please read LICENSE and README files before using it.
+// The above files and the present reference are part of the software itself,
+// and cannot be removed from it.
+//
+
+
+package simu5g.stack.rlc.um;
+
+//
+// Implements the receiving-side functionalities of the Unacknowledged
+// Mode (UM) of the Radio Link Control (RLC) layer for a specific connection.
+// It stores RLC Protocol Data Units (PDUs) arriving from the Medium Access
+// Control (MAC) layer and, when possible, performs reassembly and in-sequence
+// delivery of packets to the Packet Data Convergence Protocol (PDCP) layer.
+//
+simple UmRxEntity
+{
+    parameters:
+        @dynamic(true);
+        @display("i=block/layer");
+        string binderModule = default("binder");
+        bool isNR = default(false);
+        string macModule = default("^.^.mac");
+        double timeout @unit(s) = default(1s);            // Timeout for RX Buffer
+        int rxWindowSize = default(16);
+
+    gates:
+        input in;       // PDUs from lower mux (MAC)
+        output out;     // reassembled SDUs to upper mux (PDCP)
+}
+

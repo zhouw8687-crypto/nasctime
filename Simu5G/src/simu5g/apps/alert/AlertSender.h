@@ -1,0 +1,70 @@
+//
+//                  Simu5G
+//
+// Copyright (C) 2012-2021 Giovanni Nardini, Giovanni Stea, Antonio Virdis et al. (University of Pisa)
+// Copyright (C) 2022-2026 Giovanni Nardini, Giovanni Stea et al. (University of Pisa)
+//
+// This file is part of a software released under the license included in file
+// "license.pdf". Please read LICENSE and README files before using it.
+// The above files and the present reference are part of the software itself,
+// and cannot be removed from it.
+//
+
+#ifndef _LTE_ALERTSENDER_H_
+#define _LTE_ALERTSENDER_H_
+
+#include <string.h>
+#include <inet/transportlayer/contract/udp/UdpSocket.h>
+#include <inet/networklayer/common/L3Address.h>
+#include <inet/networklayer/common/L3AddressResolver.h>
+
+#include "simu5g/common/LteDefs.h"
+#include "simu5g/apps/alert/AlertPacket_m.h"
+
+namespace simu5g {
+
+using namespace omnetpp;
+
+class AlertSender : public cSimpleModule, public inet::UdpSocket::ICallback
+{
+    inet::UdpSocket socket;
+
+    //sender
+    int nextSno_ = 0;
+    inet::B size_;
+
+    simtime_t stopTime_;
+
+    static simsignal_t alertSentMsgSignal_;
+    // ----------------------------
+
+    cMessage *selfSender_ = nullptr;
+
+    int localPort_;
+    int destPort_;
+    inet::L3Address destAddress_;
+
+    void sendAlertPacket();
+
+  public:
+    ~AlertSender() override;
+
+  protected:
+
+    int numInitStages() const override { return inet::NUM_INIT_STAGES; }
+    void initialize(int stage) override;
+    void handleMessage(cMessage *msg) override;
+
+    // UdpSocket::ICallback methods
+    void socketDataArrived(inet::UdpSocket *socket, inet::Packet *packet) override;
+    void socketErrorArrived(inet::UdpSocket *socket, inet::Indication *indication) override;
+    void socketClosed(inet::UdpSocket *socket) override;
+
+    // utility: show current statistics above the icon
+    void refreshDisplay() const override;
+};
+
+} //namespace
+
+#endif
+
