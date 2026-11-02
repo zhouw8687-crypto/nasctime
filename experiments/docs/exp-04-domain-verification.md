@@ -11,6 +11,7 @@
 | `mpls_test`（L3 承载） | 200 | 191 | 95.5% | 80.88 ms | LSP 生效（关 FEC 后 55.90 ms） |
 | `mpls_failure_test`（L3 故障） | — | 513 | — | 中断 479.84 ms | 恢复期再断 320.16 ms |
 | `ran_test`（无线接入） | 299 | 298 | 99.7% | 4.77 ms | 1 gNB / 1 UE，下行 |
+| `core_test`（核心网用户面） | 299 | 299 | **100%** | **0.71 µs** | Router 代理 UPF（真 UPF 需 GTP 对端） |
 
 > 送达率不足 100% 都是"仿真结束时在途"或"启动期未收敛"，不是模型错误。
 
@@ -110,3 +111,15 @@
 | **控制平面** | 完全没有；所有参数都是写死的 |
 | **统一业务** | 每个域自己造 `UdpBasicApp`，没有契约化流 |
 | **统一指标采集** | 现在靠 `kpi_table.py`/`hist_summary.py`/`vec_gaps.py` 三个工具分别读，尚未合并 |
+
+
+## 6. 补充：核心网域（2026-11-02）
+
+`core_test/` 结构：`hostA ─10G─ iUpf ─10G─ upf ─10G─ server`，两个 `iUpf/upf` 是 INET `Router`（代理 UPF）。
+
+**为什么不直接用 Simu5G 的 `Upf`**：`Upf.ned` 里 `dnPpp` 只与 `gtp_user` 相连，必须有 GTP 对端（gNB 的 `GtpUser`）才能完成封装/解封装并注册接口；独立核心域里会在 `upf.ipv4.lp` 报
+`Connected network interfaces can register using registerInterface()`。
+Simu5G 文档写 "act like IP routers in the current version"，因此用 `Router` 在"转发/时延/切片"维度等价。
+换回真 UPF 的条件与接法见 `nascTime/simulations/demos/core_test/README.md`。
+
+实测：hostA 发 299 / server 收 **299（100%）**，端到端 **0.71 µs**（两跳 10G）。

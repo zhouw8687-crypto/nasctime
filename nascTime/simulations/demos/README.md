@@ -14,6 +14,7 @@
 | `multi_endpoint_test/` | 3 端点参考场景 | L2+5G | ⚠️ 接收端未记录包 | 论文基线拓扑 |
 | `ext_multiendpoint_test/` | N 端点参数化拓扑 | L2+5G | ✅ | frer_test 的底座 |
 | `ran_test/` | **无线接入** | NR | ✅ 跑通 | 复用 Simu5G `SingleCell_Standalone`；DL 4.77 ms / 99.7% |
+| `core_test/` | **核心网（用户面）** | IP | ✅ 跑通 | Router 代理 UPF（真 UPF 需 GTP 对端）；0.71 µs / 100% |
 
 ## 三条纪律
 

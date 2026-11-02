@@ -20,7 +20,7 @@ export INET_ROOT="$B/inet"
 export SIMU5G_ROOT="$B/Simu5G"
 export NASCTIME_ROOT="$B/nascTime"
 
-ALL=(ring mpls mpls_failure ran)
+ALL=(ring mpls mpls_failure ran core)
 DOMAINS=("$@")
 if [ ${#DOMAINS[@]} -eq 0 ]; then DOMAINS=("${ALL[@]}"); fi
 
@@ -45,6 +45,11 @@ for name in "${DOMAINS[@]}"; do
             dir="$D/ran_test"
             args=(-f omnetpp.ini -u Cmdenv -r 0 --sim-time-limit=3s)
             runner="./run.sh"
+            ;;
+        core)
+            dir="$D/core_test"
+            args=(-f omnetpp.ini -u Cmdenv -r 0 --sim-time-limit=3s)
+            runner="../../../bin/nasctime-run.sh"
             ;;
         *)
             echo "未知域：$name"; continue ;;
