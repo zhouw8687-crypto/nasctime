@@ -8,11 +8,12 @@
 | 目录 | 域 | 层次 | 状态 | 关键机制 |
 |---|---|---|---|---|
 | `ring_test/` | **边缘有线接入** | L2 | ✅ 跑通 | TsnSwitch 三角环 + FRER 双路径 |
-| `mpls_test/` | **L3 承载域** | L3 | ✅ 跑通 | 7 台 MPLS LSR + RSVP + 标签表 |
+| `mpls_test/` | **L3 承载域** | L3 | ✅ 跑通 | 7 台 MPLS LSR + RSVP + 标签表；已验证 LSP 覆盖最短路（80.9 vs 55.9 ms） |
+| `mpls_failure_test/` | **L3 承载域（故障）** | L3 | ✅ 跑通 | 节点宕机/恢复；中断 479.8 ms / 320.2 ms |
 | `frer_test/` | 5G-TSN 桥接（nascTime 原场景） | L2+5G | ✅ 有 60 run 数据 | NW-TT/DS-TT + gPTP + FRER |
 | `multi_endpoint_test/` | 3 端点参考场景 | L2+5G | ⚠️ 接收端未记录包 | 论文基线拓扑 |
 | `ext_multiendpoint_test/` | N 端点参数化拓扑 | L2+5G | ✅ | frer_test 的底座 |
-| （待建）`ran_test/` | 无线接入 | NR | ❌ | Simu5G gNodeB + NrUe |
+| `ran_test/` | **无线接入** | NR | ✅ 跑通 | 复用 Simu5G `SingleCell_Standalone`；DL 4.77 ms / 99.7% |
 
 ## 三条纪律
 

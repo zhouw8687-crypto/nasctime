@@ -22,11 +22,11 @@ set -uo pipefail
 
 NASCTIME_BASE=/media/a100/data/zbw/nasctime
 OMNETPP="$NASCTIME_BASE/omnetpp-6.4.0"
-CONDA_LIB="$NASCTIME_BASE/conda-envs/nasctime/lib"
+CONDA_LIB="/media/a100/data/zbw/conda-envs/nasctime/lib"
 SCEN="$NASCTIME_BASE/nascTime/simulations/demos/frer_test"
 SIM_TIME_LIMIT="${SIM_TIME_LIMIT:-0.02s}"
 
-export PATH="$OMNETPP/bin:$NASCTIME_BASE/conda-envs/nasctime/bin:$PATH"
+export PATH="$OMNETPP/bin:/media/a100/data/zbw/conda-envs/nasctime/bin:$PATH"
 export LD_LIBRARY_PATH="$CONDA_LIB:$OMNETPP/lib"
 export INET_ROOT="$NASCTIME_BASE/inet"
 export SIMU5G_ROOT="$NASCTIME_BASE/Simu5G"
