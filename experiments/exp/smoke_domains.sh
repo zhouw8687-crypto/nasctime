@@ -20,7 +20,7 @@ export INET_ROOT="$B/inet"
 export SIMU5G_ROOT="$B/Simu5G"
 export NASCTIME_ROOT="$B/nascTime"
 
-ALL=(ring mpls mpls_failure ran core)
+ALL=(ring mpls mpls_failure ran core system)
 DOMAINS=("$@")
 if [ ${#DOMAINS[@]} -eq 0 ]; then DOMAINS=("${ALL[@]}"); fi
 
@@ -48,6 +48,11 @@ for name in "${DOMAINS[@]}"; do
             ;;
         core)
             dir="$D/core_test"
+            args=(-f omnetpp.ini -u Cmdenv -r 0 --sim-time-limit=3s)
+            runner="../../../bin/nasctime-run.sh"
+            ;;
+        system)
+            dir="$D/system_test"
             args=(-f omnetpp.ini -u Cmdenv -r 0 --sim-time-limit=3s)
             runner="../../../bin/nasctime-run.sh"
             ;;
