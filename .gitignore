@@ -57,3 +57,6 @@ Thumbs.db
 # ---- 导出/传输用（不入库）----
 exports/
 *.bundle
+
+# 冒烟脚本按域生成的独立结果目录
+results_*/
