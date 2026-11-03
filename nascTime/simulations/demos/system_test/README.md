@@ -67,3 +67,51 @@
 cd nascTime/simulations/demos/system_test
 ../../../bin/nasctime-run.sh -f omnetpp.ini -u Cmdenv -r 0 --sim-time-limit=3s --result-dir=results
 ```
+
+
+## 无线接入版（`SystemTestWireless.ned` + `omnetpp_wireless.ini`）
+
+在原来的基础上加了 `gNB` + `NrUe` + 真 `Upf`，保留原版 `SystemTest` 不动。
+
+### 一个必须记住的接法：TSN 要挂在 UPF 的 N6 侧
+
+第一版把 TSN 接到 N3 承载环、再进 `upf.pppg`，结果运行时报：
+
+```
+Connected network interfaces can register using registerInterface()
+-- in module SystemTestWireless.upf.ipv4.lp
+```
+
+原因：**UPF 是 GTP 隧道端点**
+- `upf.pppg` = **N3 侧**，对端必须是 gNB（GTP 封装后的流量）
+- `upf.dnPppg` = **N6 侧**，普通 IP，接数据网 / TSN 侧
+
+所以 TSN 有线接入必须挂**核心侧（N6）**，不能挂 N3 传输环。
+
+### 正确拓扑
+
+```
+[N3 承载]  gNB ── lsr2 ══ lsr1 ══ lsr3 ── upf.pppg
+                                            │
+[N6/核心]                            upf.dnPppg
+                                            │
+[TSN 接入] src ─ pe1 ─ pe2 ─ pe3 ─ edgeRouter ─ coreRouter ── server
+```
+
+### 实测（3 s）
+
+| 流 | 发送 | 说明 |
+|---|---|---|
+| 有线 src → server | 299 | 经 TSN 接入 → N6 → server |
+| 无线 ue[0] → server | 296 | 经 gNB → GTP → N3 环 → UPF → N6 → server |
+| **server 合计收到** | **593** | = 299 + 294（2 个在途） |
+
+合并时延：mean 10.24 ms / p99 32.2 ms / stddev 11.13 ms。
+注意：这是**两条流混在一起**的统计（有线约 0.1 ms、无线约 5–30 ms），要看单流指标必须按端口分开采集。
+
+### 这一版还缺
+
+- `ue[0]` 的 `servingNodeId/nrServingNodeId` 是硬编码的 0/1，节点顺序一变就断——应当改成按名字绑定；
+- 只有 1 个 UE、无切换；
+- 没有 FRER / 门控 / 时间同步；
+- 无线流的时延没有单独采集（混在 server 的 `endToEndDelay` 里）。

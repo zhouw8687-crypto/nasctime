@@ -20,7 +20,7 @@ export INET_ROOT="$B/inet"
 export SIMU5G_ROOT="$B/Simu5G"
 export NASCTIME_ROOT="$B/nascTime"
 
-ALL=(ring mpls mpls_failure ran core system)
+ALL=(ring mpls mpls_failure ran core system system_wireless)
 DOMAINS=("$@")
 if [ ${#DOMAINS[@]} -eq 0 ]; then DOMAINS=("${ALL[@]}"); fi
 
@@ -56,13 +56,23 @@ for name in "${DOMAINS[@]}"; do
             args=(-f omnetpp.ini -u Cmdenv -r 0 --sim-time-limit=3s)
             runner="../../../bin/nasctime-run.sh"
             ;;
+        system_wireless)
+            dir="$D/system_test"
+            args=(-f omnetpp_wireless.ini -u Cmdenv -r 0 --sim-time-limit=3s)
+            runner="../../../bin/nasctime-run.sh"
+            ;;
+        system_wireless)
+            dir="$D/system_test"
+            args=(-f omnetpp_wireless.ini -u Cmdenv -r 0 --sim-time-limit=3s)
+            runner="../../../bin/nasctime-run.sh"
+            ;;
         *)
             echo "未知域：$name"; continue ;;
     esac
 
     echo "=== $name ($dir) ==="
-    rm -rf "$dir/results"
-    ( cd "$dir" && $runner "${args[@]}" --result-dir=results > "/tmp/smoke_$name.log" 2>&1 )
+    rm -rf "$dir/results_$name"
+    ( cd "$dir" && $runner "${args[@]}" --result-dir="results_$name" > "/tmp/smoke_$name.log" 2>&1 )
     rc=$?
     if [ $rc -eq 0 ]; then
         printf '  ✅ rc=0  产物: '
