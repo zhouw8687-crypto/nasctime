@@ -20,7 +20,7 @@ export INET_ROOT="$B/inet"
 export SIMU5G_ROOT="$B/Simu5G"
 export NASCTIME_ROOT="$B/nascTime"
 
-ALL=(ring mpls mpls_failure pe ran core system system_wireless)
+ALL=(e2e ring mpls mpls_failure pe ran core system system_wireless)
 DOMAINS=("$@")
 if [ ${#DOMAINS[@]} -eq 0 ]; then DOMAINS=("${ALL[@]}"); fi
 
@@ -39,6 +39,11 @@ for name in "${DOMAINS[@]}"; do
         mpls_failure)
             dir="$D/mpls_failure_test"
             args=(-f omnetpp.ini -u Cmdenv -r 0 --sim-time-limit=6s '--**.vector-recording=true')
+            runner="../../../bin/nasctime-run.sh"
+            ;;
+        e2e)
+            dir="$D/e2e_test"
+            args=(-f omnetpp.ini -u Cmdenv -r 0 --sim-time-limit=3s)
             runner="../../../bin/nasctime-run.sh"
             ;;
         pe)
@@ -81,7 +86,7 @@ for name in "${DOMAINS[@]}"; do
     rc=$?
     if [ $rc -eq 0 ]; then
         printf '  ✅ rc=0  产物: '
-        ls "$dir/results" 2>/dev/null | tr '\n' ' '
+        ls "$dir/results_$name" 2>/dev/null | tr '\n' ' '
         echo
     else
         echo "  ❌ rc=$rc  日志尾部："

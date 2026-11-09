@@ -7,6 +7,7 @@
 
 | 目录 | 域 | 层次 | 状态 | 关键机制 |
 |---|---|---|---|---|
+| `e2e_test/` | **项目书端到端** | L2+N3+核心 | ✅ 跑通 | ue⇢gNB + host→edge 两条接入汇入 PE 链 → UPF → server |
 | `pe_test/` | **承载（PE+TSN）** | L2+TSN | ✅ 跑通 | Qbv 门控开/关对照：HP max/min 从 15.6× 降到 1.28× |
 | `system_test/` | **整体组装** | L2+L3 | ✅ 跑通 | 有线接入 → 边界路由 → 承载环 → 核心；81.83 µs / 100% |
 | `ring_test/` | **边缘有线接入** | L2 | ✅ 跑通 | TsnSwitch 三角环 + FRER 双路径 |
@@ -76,3 +77,24 @@ INET 里 `TsnSwitch` 只做 L2，`Router`/`RsvpMplsRouter` 只做 L3，没有现
 - `pe_test/` 当前用 `TsnSwitch` 链（L2 + 门控能力），先证明门控有效；
 - `mpls_test/` 用 `RsvpMplsRouter` 证明 L3 显式路径；
 - 合成 TSN-capable PE 是后续工作项。
+
+
+## 项目书模型（2026-11-02 定稿，优先看这个）
+
+按项目书原文搭的端到端环境在 **`e2e_test/`**：
+
+```
+[无线接入]  ue ⇢ gNB ──N3──┐
+                             ├── [承载: pe1 ══ pe2 ══ pe3，带 Qbv] ── [核心: upf ── server]
+[有线终端]  host ── edge ───┘
+```
+
+这个模型**不包含** nascTime 的 5G-TSN 桥假设（无 NW-TT/DS-TT、无 TSN 岛）。
+其它目录的定位：
+
+| 目录 | 定位 |
+|---|---|
+| `e2e_test/` | **项目书端到端（主）** |
+| `pe_test/` / `ran_test/` / `core_test/` | 三段各自的单域验证 |
+| `system_test/` | 早期组装（LSR 环做承载），保留作对照 |
+| `ring_test/` / `mpls_test/` / `mpls_failure_test/` | 机制验证台，非项目书模型 |
