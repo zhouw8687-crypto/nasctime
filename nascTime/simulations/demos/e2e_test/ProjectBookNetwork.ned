@@ -65,6 +65,9 @@ network ProjectBookNetwork
         n3Router: Router {
             @display("p=420,120");
         }
+        n3Edge: TsnSwitch {
+            @display("p=490,210");
+        }
         pe1: TsnSwitch {
             @display("p=560,300");
         }
@@ -89,7 +92,8 @@ network ProjectBookNetwork
     connections:
         // 无线：UE ↔ gNB 是空口，不需要连线；gNB 的 N3 经 n3Router 进承载
         gnb.ppp <--> { datarate = 10Gbps; delay = 10us; } <--> n3Router.pppg++;
-        n3Router.ethg++ <--> EthernetLink <--> pe1.ethg++;
+        n3Router.ethg++ <--> EthernetLink <--> n3Edge.ethg++;
+        n3Edge.ethg++ <--> EthernetLink <--> pe1.ethg++;
 
         // 有线：终端 → 边缘 → 承载
         host.ethg++ <--> EthernetLink <--> edge.ethg++;
