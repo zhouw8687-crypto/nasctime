@@ -91,10 +91,6 @@ network ProjectBookLadder
             @display("p=520,30");
         }
 
-        // ===== 边缘 I-UPF（N3 汇聚）=====
-        iUpf: Upf {
-            @display("p=520,620");
-        }
 
         // ===== 底部两台基站 =====
         gnb1: gNodeB {
@@ -126,11 +122,7 @@ network ProjectBookLadder
         NE2.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> upf.pppg++;
         upf.dnPppg <--> { datarate = 10Gbps; delay = 10us; } <--> server.pppg++;
 
-        // ---- 边缘 I-UPF 双归 NE5/NE6（N9 走日字形）----
-        NE5.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> iUpf.pppg++;
-        NE6.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> iUpf.pppg++;
-
-        // ---- 底部两台基站：N3 直连 I-UPF（官方多小区接法）----
-        iUpf.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> gnb1.ppp;
-        iUpf.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> gnb2.ppp;
+        // ---- 底部两台基站：N3 直接接在 NE5、NE6（不经 I-UPF）----
+        NE5.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> gnb1.ppp;
+        NE6.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> gnb2.ppp;
 }
