@@ -13,11 +13,13 @@
 #include "simu5g/corenetwork/trafficFlowFilter/TftControlInfo_m.h"
 #include "simu5g/common/QfiTag_m.h"
 #include <iostream>
+#include <sstream>
 #include <inet/networklayer/common/L3AddressResolver.h>
 #include <inet/networklayer/ipv4/Ipv4Header_m.h>
 #include <inet/common/packet/printer/PacketPrinter.h>
 #include <inet/common/socket/SocketTag_m.h>
 #include <inet/linklayer/common/InterfaceTag_m.h>
+#include <inet/networklayer/common/DscpTag_m.h>
 
 namespace simu5g {
 
@@ -43,6 +45,22 @@ void GtpUser::initialize(int stage)
     socket_.bind(localPort_);
 
     tunnelPeerPort_ = par("tunnelPeerPort");
+
+    // 解析 QFI -> DSCP 映射表（"qfi:dscp,qfi:dscp"）
+    {
+        std::string mapStr = par("qfiDscpMap").stdstringValue();
+        std::stringstream ss(mapStr);
+        std::string item;
+        while (std::getline(ss, item, ',')) {
+            if (item.empty()) continue;
+            auto pos = item.find(':');
+            if (pos == std::string::npos) continue;
+            int q = std::stoi(item.substr(0, pos));
+            int d = std::stoi(item.substr(pos + 1));
+            qfiDscpMap_[q] = d;
+        }
+        EV << "GtpUser: loaded " << qfiDscpMap_.size() << " QFI->DSCP entries" << endl;
+    }
 
     networkNode_ = getContainingNode(this);
 
@@ -204,6 +222,15 @@ void GtpUser::handleFromTrafficFlowFilter(Packet *datagram)
         gtpPacket->insertAtFront(header);
         auto data = datagram->peekData();
         gtpPacket->insertAtBack(data);
+
+        // 第 ④ 层：按 QFI 设置 N3 外层 IP 的 DSCP（缺省 DSCP = QFI）
+        {
+            int dscp;
+            auto it = qfiDscpMap_.find(static_cast<int>(qfi));
+            dscp = (it != qfiDscpMap_.end()) ? it->second : static_cast<int>(qfi);
+            if (dscp >= 0 && dscp <= 63)
+                gtpPacket->addTagIfAbsent<inet::DscpReq>()->setDifferentiatedServicesCodePoint(dscp);
+        }
 
         delete datagram;
 

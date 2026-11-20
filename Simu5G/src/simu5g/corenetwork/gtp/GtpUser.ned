@@ -31,6 +31,9 @@ simple GtpUser
         string ipOutInterface = default("");    // optional: manual specification of outgoing interface for received IP
         int localPort = default(31);
         int tunnelPeerPort = default(31);
+        // N3 外层 IP 的 DSCP 映射（对应 5QI/ QFI → DSCP 这一层，参考 Juniper fiveqi-map）
+        // 格式 "qfi:dscp,qfi:dscp"，如 "1:46,5:34,9:0"；留空 = 直接用 QFI 作 DSCP
+        string qfiDscpMap = default("");
         string gateway = default("");			// optional
 
         string forceTunnelPeer = default("");  // empty = normal routing, set = force all tunneling to this node

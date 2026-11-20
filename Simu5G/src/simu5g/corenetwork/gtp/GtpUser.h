@@ -13,7 +13,7 @@
 #ifndef __GTP_USER_H_
 #define __GTP_USER_H_
 
-#include <map>
+
 
 #include "simu5g/common/LteDefs.h"
 #include <inet/common/ModuleAccess.h>
@@ -25,6 +25,8 @@
 
 #include "simu5g/common/binder/Binder.h"
 #include "simu5g/corenetwork/gtp/GtpUserMsg_m.h"
+
+#include <map>
 
 namespace simu5g {
 
@@ -63,6 +65,9 @@ class GtpUser : public cSimpleModule
 
     // the GTP protocol Port
     unsigned int tunnelPeerPort_;
+
+    // QFI -> 外层 IP DSCP 映射表（留空则 DSCP = QFI）
+    std::map<int, int> qfiDscpMap_;
 
     inet::L3Address forcedPeerAddress_;
     bool hasForcedPeer_ = false;
