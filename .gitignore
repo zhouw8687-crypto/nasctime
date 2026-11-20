@@ -65,3 +65,9 @@ results_*/
 experiments/report/figs/
 figs/
 report_outline.txt
+experiments/report/tmp_scripts/
+read_modified.py
+read_testplan.py
+patch_report.py
+inspect_images.py
+make_fig8_ladder.py
