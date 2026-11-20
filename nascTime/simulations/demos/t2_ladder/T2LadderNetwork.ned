@@ -1,25 +1,30 @@
 //
-// T2LadderNetwork —— 三流三切片 × 日字形承载网
+// T2LadderNetwork —— 三流三切片 × 「日」字形承载网（按参考拓扑）
 //
-// 目的：把 t2_slices（链式两跳）的三切片配置搬到日字形六节点环网上，
-//       验证多跳、多路径、存在环路的 L2 承载网中，切片隔离与门控是否仍然成立。
+// 拓扑（与参考图一致：5GC 在顶、两台接入在底）：
 //
-// 拓扑：
+//                          5GC (server)
+//                          ╱          ╲
+//                       NE1 ═════════ NE2
+//                        ║              ║
+//                       NE3 ═════════ NE4
+//                        ║              ║
+//                       NE5 ═════════ NE6
+//                        ║              ║
+//                   接入1(client1)   接入2(client2)
 //
-//        client3 ── NE3 ── NE1 ── server
-//                    ║        ║
-//                   NE4 ════ NE2
-//                    ║        ║
-//        client1 ── NE5 ════ NE6 ── client2
+// 与参考图的对应：
+//   5GC    ↔ server（双归 NE1、NE2）
+//   eNB×2  ↔ 接入点 client1（NE5）、client2（NE6）
+//   NE1–6  ↔ 承载网六节点（带 802.1Qbv 门控）
 //
-//   NE1–NE2、NE3–NE4、NE5–NE6 为三横；NE1–NE3–NE5、NE2–NE4–NE6 为两竖。
-//   三条流分别从 NE3、NE5、NE6 进入，汇聚到 NE1 的服务器，路径跳数不同：
-//     切片1（client1→NE5→NE3→NE1）：2 跳
-//     切片2（client2→NE6→NE4→NE2→NE1）：3 跳
-//     切片3（client3→NE3→NE1）：1 跳
+// 三条切片流分布在两个接入点上：
+//   切片1（HP, PCP5）  client1 → NE5 → NE3 → NE1 → server   （2 跳）
+//   切片3（LP, PCP0）  client1 → 同上                        （2 跳）
+//   切片2（MP, PCP4）  client2 → NE6 → NE4 → NE2 → server   （2 跳）
 //
-// 注意：六节点 L2 环网存在物理环路。本场景用 GlobalArp 消除 ARP 广播，
-//       避免广播风暴；但 L2 未知单播仍可能泛洪，运行结果需检查是否有重复投递。
+// 说明：六节点 L2 有物理环路，本场景用 GlobalArp 消除 ARP 广播；
+//       未知单播泛洪风险见 README“已知风险”。
 //
 package nasctime.simulations.demos.t2_ladder;
 
@@ -31,37 +36,37 @@ import inet.node.tsn.TsnSwitch;
 network T2LadderNetwork extends TsnNetworkBase
 {
     submodules:
-        client1: TsnDevice {
-            @display("p=120,480");
-        }
-        client2: TsnDevice {
-            @display("p=760,480");
-        }
-        client3: TsnDevice {
-            @display("p=120,320");
-        }
-
-        NE1: TsnSwitch {
-            @display("p=620,160");
-        }
-        NE2: TsnSwitch {
-            @display("p=760,260");
-        }
-        NE3: TsnSwitch {
-            @display("p=300,320");
-        }
-        NE4: TsnSwitch {
-            @display("p=560,360");
-        }
-        NE5: TsnSwitch {
-            @display("p=300,480");
-        }
-        NE6: TsnSwitch {
-            @display("p=560,480");
-        }
-
+        // ===== 5GC（顶部，双归）=====
         server: TsnDevice {
             @display("p=620,60");
+        }
+
+        // ===== 承载网（日字形）=====
+        NE1: TsnSwitch {
+            @display("p=520,180");
+        }
+        NE2: TsnSwitch {
+            @display("p=760,180");
+        }
+        NE3: TsnSwitch {
+            @display("p=520,320");
+        }
+        NE4: TsnSwitch {
+            @display("p=760,320");
+        }
+        NE5: TsnSwitch {
+            @display("p=520,460");
+        }
+        NE6: TsnSwitch {
+            @display("p=760,460");
+        }
+
+        // ===== 两个接入点（底部）=====
+        client1: TsnDevice {
+            @display("p=520,600");
+        }
+        client2: TsnDevice {
+            @display("p=760,600");
         }
 
     connections:
@@ -78,9 +83,11 @@ network T2LadderNetwork extends TsnNetworkBase
         NE2.ethg++ <--> EthernetLink <--> NE4.ethg++;
         NE4.ethg++ <--> EthernetLink <--> NE6.ethg++;
 
-        // 接入
+        // 5GC 双归
+        server.ethg++ <--> EthernetLink <--> NE1.ethg++;
+        server.ethg++ <--> EthernetLink <--> NE2.ethg++;
+
+        // 底部两个接入点
         client1.ethg++ <--> EthernetLink <--> NE5.ethg++;
         client2.ethg++ <--> EthernetLink <--> NE6.ethg++;
-        client3.ethg++ <--> EthernetLink <--> NE3.ethg++;
-        server.ethg++ <--> EthernetLink <--> NE1.ethg++;
 }
