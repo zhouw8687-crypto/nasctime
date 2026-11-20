@@ -71,3 +71,4 @@ read_testplan.py
 patch_report.py
 inspect_images.py
 make_fig8_ladder.py
+fix_t2_readme.py
