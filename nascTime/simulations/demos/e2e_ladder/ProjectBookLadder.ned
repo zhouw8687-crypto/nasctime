@@ -1,34 +1,35 @@
 //
-// ProjectBookLadder —— “日”字形端到端环境（底部两个基站）
+// ProjectBookLadder —— “日”字形端到端环境（顶部 5GC，底部两台基站）
 //
 // 结构（对照参考图，去掉测试仪表）：
 //
-//                        server
-//                          │
-//                       upf.dnPppg
-//                    upf.pppg[0]  upf.pppg[1]
-//                        │            │
-//                  NE1 ══════════ NE2        ← 核心网双归（左上角连核心网）
-//                   ║                ║
-//                  NE3 ══════════ NE4
-//                   ║                ║
-//                  NE5 ══════════ NE6        ← 最下面一层接两个基站
-//                   ║                ║
-//                 gnb1             gnb2
-//                   ┆                ┆
-//                  ue[0]           ue[1]
+//                         server            ← 数据网（N6）
+//                           │
+//                          upf              ← 5GC 锚点 UPF
+//                       ╱        ╲
+//                     NE1 ══════ NE2        ← 5GC 顶部接入（双归 NE1/NE2）
+//                      ║            ║
+//                     NE3 ══════ NE4
+//                      ║            ║
+//                     NE5 ══════ NE6
+//                      ╲            ╱
+//                        iUpf               ← 边缘 I-UPF（N3 汇聚，N9 上行）
+//                       ╱      ╲
+//                    gnb1      gnb2         ← 底部两台基站
+//                     ┆          ┆
+//                   ue[0]      ue[1]
 //
 // 与参考图的对应：
-//   NE1..NE6 ↔ 6 台 NE（三层路由节点）
-//   5GC      ↔ upf + server（双归至 NE1、NE2）
-//   eNB      ↔ gnb1、gnb2（分别接在 NE5、NE6）
-//   测试仪表 ↔ 不建模（参考图中仅为示意，且无对应的仿真元器件）
+//   NE1..NE6 ↔ 日字形承载网（三层路由节点）
+//   5GC      ↔ upf（锚点）+ iUpf（边缘）+ server，接入点在顶部 NE1/NE2
+//   eNB      ↔ gnb1、gnb2，分别经 N3 直连 iUpf（Simu5G 官方多小区接法）
+//   测试仪表 ↔ 不建模（参考图仅示意）
 //
-// 说明：
-//   - 日字形在二层会成环，L2 环 + IP 会触发 ARP 广播风暴（实测 P99 从 161µs 恶化到 981.9ms）。
-//     曾尝试用 RSTP 消除，但 BPDU 走 LLC，端节点（终端/路由器）二层无 LLC 协议栈会报错，
-//     故 NE 采用三层可路由节点，环路由路由处理。
-//   - 两条竖边（NE1-NE3-NE5 与 NE2-NE4-NE6）构成两条边不相交路径，可用于后续保护倒换验证。
+// 为什么两台基站要先汇聚到 iUpf 再上网：
+//   直接把两台 gNB 分别接到 NE5/NE6 会让 Simu5G 在业务开始时崩溃
+//   （LteHarqBufferRx::insertPdu 段错误）。官方多小区示例中，多台 gNB 都是
+//   **直连同一个 I-UPF** 的，因此这里沿用该结构：N3 在 iUpf 汇聚，N9 再经
+//   日字形网络送到锚点 UPF，既保住了双基站，也保住了“承载网在中间”。
 //
 package nasctime.simulations.demos.e2e_ladder;
 
@@ -46,7 +47,7 @@ import simu5g.world.radio.LteChannelControl;
 network ProjectBookLadder
 {
     parameters:
-        int numUe = default(1);
+        int numUe = default(2);
 
     submodules:
         configurator: Ipv4NetworkConfigurator {
@@ -64,42 +65,46 @@ network ProjectBookLadder
 
         // ===== 承载网（日字形，6 台 NE）=====
         NE1: Router {
-            @display("p=420,180");
+            @display("p=420,220");
         }
         NE2: Router {
-            @display("p=620,180");
+            @display("p=620,220");
         }
         NE3: Router {
-            @display("p=420,320");
+            @display("p=420,360");
         }
         NE4: Router {
-            @display("p=620,320");
+            @display("p=620,360");
         }
         NE5: Router {
-            @display("p=420,460");
+            @display("p=420,500");
         }
         NE6: Router {
-            @display("p=620,460");
+            @display("p=620,500");
         }
 
-        // ===== 核心网（5GC）=====
+        // ===== 5GC（顶部）=====
         upf: Upf {
-            @display("p=520,50");
+            @display("p=520,120");
         }
         server: StandardHost {
-            @display("p=520,10");
+            @display("p=520,30");
         }
 
-        // ===== 两个基站 =====
-        gnb1: gNodeB {
-            @display("p=420,620;is=vl");
+        // ===== 边缘 I-UPF（N3 汇聚）=====
+        iUpf: Upf {
+            @display("p=520,620");
         }
-        // 第二台基站：当前启用会导致 Simu5G HARQ 段错误（见 README），暂不实例化
-        // gnb2: gNodeB {
-        //     @display("p=620,620;is=vl");
-        // }
+
+        // ===== 底部两台基站 =====
+        gnb1: gNodeB {
+            @display("p=400,740;is=vl");
+        }
+        gnb2: gNodeB {
+            @display("p=640,740;is=vl");
+        }
         ue[numUe]: NrUe {
-            @display("p=420,720");
+            @display("p=520,840");
         }
 
     connections:
@@ -116,11 +121,16 @@ network ProjectBookLadder
         NE2.ethg++ <--> EthernetLink <--> NE4.ethg++;
         NE4.ethg++ <--> EthernetLink <--> NE6.ethg++;
 
-        // ---- 核心网双归（左上角连核心网）----
+        // ---- 5GC 顶部：锚点 UPF 双归 NE1/NE2 ----
         NE1.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> upf.pppg++;
         NE2.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> upf.pppg++;
         upf.dnPppg <--> { datarate = 10Gbps; delay = 10us; } <--> server.pppg++;
 
-        // ---- 底部两个基站 ----
-        NE5.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> gnb1.ppp;
+        // ---- 边缘 I-UPF 双归 NE5/NE6（N9 走日字形）----
+        NE5.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> iUpf.pppg++;
+        NE6.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> iUpf.pppg++;
+
+        // ---- 底部两台基站：N3 直连 I-UPF（官方多小区接法）----
+        iUpf.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> gnb1.ppp;
+        iUpf.pppg++ <--> { datarate = 10Gbps; delay = 10us; } <--> gnb2.ppp;
 }
