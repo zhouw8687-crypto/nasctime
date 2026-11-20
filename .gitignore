@@ -60,3 +60,8 @@ exports/
 
 # 冒烟脚本按域生成的独立结果目录
 results_*/
+
+# 报告生成的中间产物
+experiments/report/figs/
+figs/
+report_outline.txt
