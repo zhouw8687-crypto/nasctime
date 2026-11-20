@@ -20,12 +20,17 @@ export INET_ROOT="$B/inet"
 export SIMU5G_ROOT="$B/Simu5G"
 export NASCTIME_ROOT="$B/nascTime"
 
-ALL=(e2e ring mpls mpls_failure pe ran core system system_wireless)
+ALL=(e2e e2e_ladder ring mpls mpls_failure pe ran core system system_wireless)
 DOMAINS=("$@")
 if [ ${#DOMAINS[@]} -eq 0 ]; then DOMAINS=("${ALL[@]}"); fi
 
 for name in "${DOMAINS[@]}"; do
     case "$name" in
+        e2e_ladder)
+            dir="$D/e2e_ladder"
+            args=(-f omnetpp.ini -u Cmdenv -r 0 --sim-time-limit=6s)
+            runner="../../../bin/nasctime-run.sh"
+            ;;
         ring)
             dir="$D/ring_test"
             args=(-f omnetpp_probe.ini -u Cmdenv -r 0 --sim-time-limit=0.05s)
