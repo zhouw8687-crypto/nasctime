@@ -1,0 +1,14 @@
+<script>
+  <at t="600ms">
+    <set-param module="NE5.eth[1].queue.transmissionGate[1]" par="durations" value="[1350us, 650us]"/>
+    <set-param module="NE5.eth[1].queue.transmissionGate[0]" par="durations" value="[1850us, 150us]"/>
+    <set-param module="NE3.eth[1].queue.transmissionGate[1]" par="durations" value="[1350us, 650us]"/>
+    <set-param module="NE3.eth[1].queue.transmissionGate[0]" par="durations" value="[1850us, 150us]"/>
+  </at>
+  <at t="1100ms">
+    <set-param module="NE5.eth[1].queue.transmissionGate[1]" par="durations" value="[1200us, 800us]"/>
+    <set-param module="NE5.eth[1].queue.transmissionGate[0]" par="durations" value="[1700us, 300us]"/>
+    <set-param module="NE3.eth[1].queue.transmissionGate[1]" par="durations" value="[1200us, 800us]"/>
+    <set-param module="NE3.eth[1].queue.transmissionGate[0]" par="durations" value="[1700us, 300us]"/>
+  </at>
+</script>

@@ -103,3 +103,10 @@ cd nascTime/simulations/demos/e2e_ladder
 - 利用两条竖边（NE1-NE3-NE5 / NE2-NE4-NE6）做**保护倒换**实验；
 - 若要把 Qbv 叠加回来，先解决 STP 域内端节点的 BPDU 处理；
 - 双基站 + 移动性（切换）实验。
+
+## 日字形全拓扑承载与 5G QoS 对照
+
+默认 NR 直连场景与纯承载场景共用 LadderBackbone。新配置分别由
+omnetpp_transport.ini 和 omnetpp_qos.ini 提供，覆盖两条竖边、三条横链路探测、
+FIFO／三队列常开／Qbv、动态扰动及外层 GTP-U DSCP 映射。
+[配置依据、指标和复现命令](../../../../experiments/docs/exp-08-routed-ladder-validation.md)。

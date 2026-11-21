@@ -1,0 +1,8 @@
+<script>
+  <at t="600ms">
+    <set-channel-param src-module="NE3" dest-module="NE1" par="per" value="0.02"/>
+  </at>
+  <at t="1100ms">
+    <set-channel-param src-module="NE3" dest-module="NE1" par="per" value="0"/>
+  </at>
+</script>

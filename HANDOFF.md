@@ -1,5 +1,7 @@
 # HANDOFF — 6G 确定性网络端到端验证框架（nascTime）
 
+> **2026-11-21 更新**：日字形全拓扑已验证 Router 出口 Qbv、外层 DSCP 分类及 T0–T4 仿真对照。见 [EXP-08](experiments/docs/exp-08-routed-ladder-validation.md)。下文保留原交接时点。
+
 > 生成时间：2026-11-21 13:06 CST · 生成者：DSH 会话（deepseek-flash）
 > 本地镜像：`C:\Users\a\.dsh\remote-workspaces\wmv4mdfl29ql5`
 > 远端：`a100@222.20.99.7:/media/a100/data/zbw/nasctime`
