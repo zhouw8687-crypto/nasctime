@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize one TransportLadder or ProjectBookLadder QoS result vector.
+"""Summarize per-flow KPI vectors from the supported simulation scenarios.
 
 Windows are sending-time cohorts. A packet sent in a cohort may arrive
 during the drain interval, and is still credited to its sending cohort.
@@ -45,7 +45,11 @@ def load_vectors(path, include):
 
 
 def flow_pairs(network):
-    if network == "TransportLadder":
+    if network == "SingleCell_Standalone":
+        yield "server.app[0]", "ue[0].app[0]"
+    elif network == "CoreNetwork":
+        yield "hostA.app[0]", "server.app[0]"
+    elif network == "TransportLadder":
         for side in range(2):
             for traffic_class in range(3):
                 yield f"access{side + 1}.app[{traffic_class}]", f"core.app[{side * 3 + traffic_class}]"
@@ -101,7 +105,7 @@ def percentile(values, q):
 def report_flows(vectors, start, stop, cuts):
     networks = {mod.split(".", 1)[0] for (mod, prop) in vectors if prop.startswith("packetSent:")}
     if len(networks) != 1:
-        raise ValueError("Expected one ladder network with sender vectors")
+        raise ValueError("Expected one supported network with sender vectors")
     (network,) = networks
     writer = csv.writer(sys.stdout)
     writer.writerow([
