@@ -67,8 +67,10 @@ def index_by_event(vector):
     return {(time, event): value for time, event, value in vector}
 
 
-def collect_flows(vectors, network):
-    for source, sink in flow_pairs(network):
+def collect_flows(vectors, network, pairs=None):
+    if pairs is None:
+        pairs = flow_pairs(network)
+    for source, sink in pairs:
         sent = sorted(vectors.get((f"{network}.{source}", "packetSent:vector(packetBytes)"), []))
         if not sent:
             continue  # T1 intentionally has unused sink applications.
@@ -102,7 +104,7 @@ def percentile(values, q):
     return values[index] + (rank - index) * (values[other] - values[index])
 
 
-def report_flows(vectors, start, stop, cuts):
+def report_flows(vectors, start, stop, cuts, pairs=None):
     networks = {mod.split(".", 1)[0] for (mod, prop) in vectors if prop.startswith("packetSent:")}
     if len(networks) != 1:
         raise ValueError("Expected one supported network with sender vectors")
@@ -123,7 +125,7 @@ def report_flows(vectors, start, stop, cuts):
             for index, (left, right) in enumerate(zip(boundaries, boundaries[1:]))
         )
 
-    for source, sink, sent, delivery, duplicates in collect_flows(vectors, network):
+    for source, sink, sent, delivery, duplicates in collect_flows(vectors, network, pairs):
         times = [time for time, _, _ in sent]
         for window, left, right in windows:
             first = bisect.bisect_left(times, left)
