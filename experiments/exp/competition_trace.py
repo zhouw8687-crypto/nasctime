@@ -134,13 +134,19 @@ def write_trace(directory, vectors):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("result_dir", type=Path)
-    directory = parser.parse_args().result_dir
+
+    parser.add_argument("--burst-start", type=float, default=0.6)
+    parser.add_argument("--burst-stop", type=float, default=1.0)
+    args = parser.parse_args()
+    if not 0.2 < args.burst_start < args.burst_stop < 1.6:
+        parser.error("the burst must be inside the 0.2–1.6 s analysis interval")
+    directory = args.result_dir
     (vector,) = directory.glob("*.vec")
     vectors = load_vectors(vector, lambda _, name: name in APP_SIGNALS)
     write_trace(directory, vectors)
     with (directory / "flows.csv").open("w", encoding="utf-8", newline="") as handle:
         with redirect_stdout(handle):
-            report_flows(vectors, 0.2, 1.6, [0.6, 1.0], PAIRS)
+            report_flows(vectors, 0.2, 1.6, [args.burst_start, args.burst_stop], PAIRS)
 
 
 if __name__ == "__main__":
