@@ -13,6 +13,7 @@ simple ControllerBridge
         string ranMacModule;
         string priorityQueueModule;
         string backgroundQueueModule;
+        string transportShaperModule = default("");
         string prioritySinkModule;
         string backgroundSinkModule;
         string traceFile;

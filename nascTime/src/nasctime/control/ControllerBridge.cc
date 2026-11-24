@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstring>
 #include <fstream>
+#include <optional>
 #include <string>
 
 #include <nlohmann/json.hpp>
@@ -16,6 +17,7 @@
 #include "simu5g/stack/mac/LteMacBase.h"
 #include "simu5g/stack/mac/buffer/LteMacBuffer.h"
 #include "nasctime/control/FlowPolicer.h"
+#include "nasctime/control/QbvPort.h"
 
 namespace nasctime::control {
 
@@ -140,6 +142,7 @@ class ControllerBridge : public cSimpleModule
     simu5g::LteMacBase *mac = nullptr;
     inet::queueing::PacketQueue *priorityQueue = nullptr;
     inet::queueing::PacketQueue *backgroundQueue = nullptr;
+    std::optional<QbvPort> qbvPort;
     DeliveryCounter priorityDelivery;
     DeliveryCounter backgroundDelivery;
     Connection connection;
@@ -172,6 +175,8 @@ void ControllerBridge::initialize()
     mac = check_and_cast<simu5g::LteMacBase *>(find("ranMacModule"));
     priorityQueue = check_and_cast<inet::queueing::PacketQueue *>(find("priorityQueueModule"));
     backgroundQueue = check_and_cast<inet::queueing::PacketQueue *>(find("backgroundQueueModule"));
+    if (!par("transportShaperModule").stdstringValue().empty())
+        qbvPort.emplace().bind(find("transportShaperModule"));
     find("prioritySinkModule")->subscribe("packetReceived", &priorityDelivery);
     find("backgroundSinkModule")->subscribe("packetReceived", &backgroundDelivery);
 
@@ -205,7 +210,7 @@ json ControllerBridge::observe() const
         macVirtualBufferBytes += mac->getMacBuffer(cid)->getQueueOccupancy();
 
     const auto& counts = policer->getCounters();
-    return {
+    json observation = {
         {"version", protocolVersion}, {"type", "observation"}, {"request_id", requestId},
         {"sim_time_ns", simTime().inUnit(SIMTIME_NS)}, {"generation", generation},
         {"ran", {{"node", "gnb1"}, {"dl_mac_virtual_buffer_bytes", macVirtualBufferBytes}}},
@@ -219,6 +224,12 @@ json ControllerBridge::observe() const
         {"delivery", {{"node", "ue[0]"}, {"priority", priorityDelivery.snapshot()},
                       {"background", backgroundDelivery.snapshot()}}}
     };
+    if (qbvPort) {
+        observation["transport"]["cycle_us"] = QbvPort::cycleUs;
+        observation["transport"]["priority_window_us"] = qbvPort->getPriorityWindowUs();
+        observation["transport"]["qbv_update_allowed"] = qbvPort->canApplyNow();
+    }
+    return observation;
 }
 
 json ControllerBridge::execute(const json& decision)
@@ -239,29 +250,54 @@ json ControllerBridge::execute(const json& decision)
             status = "noop";
             reason = "no_action";
         }
-        else if (!action.is_object() || !action.contains("type") || action.at("type") != "set_upf_rate" ||
-                 !action.contains("flow_id") || action.at("flow_id") != policer->getFlowId() ||
-                 !hasInteger(action, "rate_bps") || action.at("rate_bps").get<double>() < 1 ||
-                 action.at("rate_bps").get<double>() > FlowPolicer::maxRateBps)
+        else if (action.is_object() && action.contains("type")) {
             reason = "invalid_action";
-        else {
-            const int requestedRate = action.at("rate_bps").get<int>();
-            if (requestedRate != policer->getRateBps()) {
-                policer->setRateBps(requestedRate);
-                generation++;
-                status = "applied";
-                reason = "rate_changed";
+            const auto& type = action.at("type");
+            if (type == "set_upf_rate" && action.contains("flow_id") &&
+                    action.at("flow_id") == policer->getFlowId() && hasInteger(action, "rate_bps") &&
+                    action.at("rate_bps").get<double>() >= 1 &&
+                    action.at("rate_bps").get<double>() <= FlowPolicer::maxRateBps) {
+                const int rate = action.at("rate_bps").get<int>();
+                if (rate != policer->getRateBps()) {
+                    policer->setRateBps(rate);
+                    status = "applied";
+                    reason = "rate_changed";
+                }
+                else {
+                    status = "unchanged";
+                    reason = "rate_already_active";
+                }
             }
-            else {
-                status = "unchanged";
-                reason = "rate_already_active";
+            else if (type == "set_ne_gate" && qbvPort && action.contains("port") &&
+                    action.at("port") == "NE1.eth[1]" && hasInteger(action, "priority_window_us") &&
+                    action.at("priority_window_us").get<double>() >= QbvPort::minPriorityUs &&
+                    action.at("priority_window_us").get<double>() <= QbvPort::maxPriorityUs) {
+                const int window = action.at("priority_window_us").get<int>();
+                if (!qbvPort->canApplyNow())
+                    reason = "outside_qbv_cycle_boundary";
+                else if (window != qbvPort->getPriorityWindowUs()) {
+                    qbvPort->setPriorityWindowUs(window);
+                    status = "applied";
+                    reason = "gate_window_changed";
+                }
+                else {
+                    status = "unchanged";
+                    reason = "window_already_active";
+                }
             }
         }
+        else
+            reason = "invalid_action";
     }
-    return {{"version", protocolVersion}, {"type", "ack"}, {"request_id", requestId},
-            {"sim_time_ns", simTime().inUnit(SIMTIME_NS)}, {"generation", generation},
-            {"status", status}, {"reason", reason}, {"flow_id", policer->getFlowId()},
-            {"rate_bps", policer->getRateBps()}};
+    if (std::strcmp(status, "applied") == 0)
+        generation++;
+    json ack = {{"version", protocolVersion}, {"type", "ack"}, {"request_id", requestId},
+                {"sim_time_ns", simTime().inUnit(SIMTIME_NS)}, {"generation", generation},
+                {"status", status}, {"reason", reason}, {"flow_id", policer->getFlowId()},
+                {"rate_bps", policer->getRateBps()}};
+    if (qbvPort)
+        ack["priority_window_us"] = qbvPort->getPriorityWindowUs();
+    return ack;
 }
 
 void ControllerBridge::log(const json& message)
