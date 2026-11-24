@@ -34,7 +34,10 @@ int QbvPort::getPriorityWindowUs() const
                 gate->getDurations() != priorityDurations)
             throw cRuntimeError("Inconsistent Qbv gate cycle");
     }
-    return CLOCKTIME_AS_SIMTIME(firstDuration).inUnit(SIMTIME_US);
+    const int windowUs = CLOCKTIME_AS_SIMTIME(firstDuration).inUnit(SIMTIME_US);
+    if (inet::ClockTime::from(SimTime(windowUs, SIMTIME_US)) != firstDuration)
+        throw cRuntimeError("The Qbv priority window must be a whole number of microseconds");
+    return windowUs;
 }
 
 void QbvPort::setPriorityWindowUs(int priorityUs)

@@ -119,6 +119,25 @@ bool hasInteger(const json& message, const char *key)
     return message.contains(key) && message.at(key).is_number_integer();
 }
 
+struct PolicyUpdate
+{
+    std::optional<int> rate;
+    std::optional<int> window;
+    std::optional<int> bands;
+    const char *changedReason;
+    const char *unchangedReason;
+};
+
+std::optional<int> boundedInteger(const json& message, const char *key, int limit, int upperLimit)
+{
+    if (!hasInteger(message, key))
+        return std::nullopt;
+    const auto value = message.at(key).get<double>();
+    if (value < limit || value > upperLimit)
+        return std::nullopt;
+    return static_cast<int>(value);
+}
+
 class DeliveryCounter : public cListener
 {
   public:
@@ -159,6 +178,7 @@ class ControllerBridge : public cSimpleModule
     void initialize() override;
     void handleMessage(cMessage *) override;
     json observe() const;
+    std::optional<PolicyUpdate> parseUpdate(const json& action) const;
     json execute(const json& decision);
     void log(const json& message);
 
@@ -241,10 +261,32 @@ json ControllerBridge::observe() const
     return observation;
 }
 
+std::optional<PolicyUpdate> ControllerBridge::parseUpdate(const json& action) const
+{
+    if (!action.is_object() || !action.contains("type"))
+        return std::nullopt;
+
+    const auto& type = action.at("type");
+    const auto rate = boundedInteger(action, "rate_bps", 1, FlowPolicer::maxRateBps);
+    const auto window = boundedInteger(action, "priority_window_us", QbvPort::minPriorityUs, QbvPort::maxPriorityUs);
+    const auto bands = ranScheduler ? boundedInteger(action, "bands", 1, ranScheduler->getMaxBands()) : std::nullopt;
+
+    if (type == "set_upf_rate" && rate && action.contains("flow_id") && action.at("flow_id") == policer->getFlowId())
+        return PolicyUpdate{rate, {}, {}, "rate_changed", "rate_already_active"};
+    if (type == "set_ne_gate" && qbvPort && window && action.contains("port") && action.at("port") == "NE1.eth[1]")
+        return PolicyUpdate{{}, window, {}, "gate_window_changed", "window_already_active"};
+    if (type == "set_ran_dl_budget" && bands && action.contains("node") && action.at("node") == "gnb1")
+        return PolicyUpdate{{}, {}, bands, "band_budget_changed", "budget_already_active"};
+    if (type == "apply_cross_domain" && qbvPort && rate && window && bands)
+        return PolicyUpdate{rate, window, bands, "policy_changed", "policy_already_active"};
+    return std::nullopt;
+}
+
 json ControllerBridge::execute(const json& decision)
 {
     const char *status = "rejected";
     const char *reason = "invalid_decision";
+    json changed = json::array();
     const bool validEnvelope = decision.is_object() && hasInteger(decision, "version") &&
             decision.at("version") == protocolVersion && decision.contains("type") &&
             decision.at("type") == "decision" && hasInteger(decision, "request_id") &&
@@ -259,62 +301,36 @@ json ControllerBridge::execute(const json& decision)
             status = "noop";
             reason = "no_action";
         }
-        else if (action.is_object() && action.contains("type")) {
-            reason = "invalid_action";
-            const auto& type = action.at("type");
-            if (type == "set_upf_rate" && action.contains("flow_id") &&
-                    action.at("flow_id") == policer->getFlowId() && hasInteger(action, "rate_bps") &&
-                    action.at("rate_bps").get<double>() >= 1 &&
-                    action.at("rate_bps").get<double>() <= FlowPolicer::maxRateBps) {
-                const int rate = action.at("rate_bps").get<int>();
-                if (rate != policer->getRateBps()) {
-                    policer->setRateBps(rate);
-                    status = "applied";
-                    reason = "rate_changed";
+        else if (const auto update = parseUpdate(action)) {
+            if (update->window && !qbvPort->canApplyNow())
+                reason = "outside_qbv_cycle_boundary";
+            else {
+                if (update->window && *update->window != qbvPort->getPriorityWindowUs()) {
+                    qbvPort->setPriorityWindowUs(*update->window);
+                    changed.push_back("transport");
+                }
+                if (update->bands && *update->bands != ranScheduler->getBandBudget()) {
+                    ranScheduler->setBandBudget(*update->bands);
+                    changed.push_back("ran");
+                }
+                if (update->rate && *update->rate != policer->getRateBps()) {
+                    policer->setRateBps(*update->rate);
+                    changed.push_back("core");
+                }
+                if (changed.empty()) {
+                    status = "unchanged";
+                    reason = update->unchangedReason;
                 }
                 else {
-                    status = "unchanged";
-                    reason = "rate_already_active";
-                }
-            }
-            else if (type == "set_ne_gate" && qbvPort && action.contains("port") &&
-                    action.at("port") == "NE1.eth[1]" && hasInteger(action, "priority_window_us") &&
-                    action.at("priority_window_us").get<double>() >= QbvPort::minPriorityUs &&
-                    action.at("priority_window_us").get<double>() <= QbvPort::maxPriorityUs) {
-                const int window = action.at("priority_window_us").get<int>();
-                if (!qbvPort->canApplyNow())
-                    reason = "outside_qbv_cycle_boundary";
-                else if (window != qbvPort->getPriorityWindowUs()) {
-                    qbvPort->setPriorityWindowUs(window);
+                    generation++;
                     status = "applied";
-                    reason = "gate_window_changed";
-                }
-                else {
-                    status = "unchanged";
-                    reason = "window_already_active";
-                }
-            }
-            else if (type == "set_ran_dl_budget" && ranScheduler && action.contains("node") &&
-                    action.at("node") == "gnb1" && hasInteger(action, "bands") &&
-                    action.at("bands").get<double>() >= 1 &&
-                    action.at("bands").get<double>() <= ranScheduler->getMaxBands()) {
-                const int budget = action.at("bands").get<int>();
-                if (budget != ranScheduler->getBandBudget()) {
-                    ranScheduler->setBandBudget(budget);
-                    status = "applied";
-                    reason = "band_budget_changed";
-                }
-                else {
-                    status = "unchanged";
-                    reason = "budget_already_active";
+                    reason = update->changedReason;
                 }
             }
         }
         else
             reason = "invalid_action";
     }
-    if (std::strcmp(status, "applied") == 0)
-        generation++;
     json ack = {{"version", protocolVersion}, {"type", "ack"}, {"request_id", requestId},
                 {"sim_time_ns", simTime().inUnit(SIMTIME_NS)}, {"generation", generation},
                 {"status", status}, {"reason", reason}, {"flow_id", policer->getFlowId()},
@@ -323,6 +339,8 @@ json ControllerBridge::execute(const json& decision)
         ack["priority_window_us"] = qbvPort->getPriorityWindowUs();
     if (ranScheduler)
         ack["dl_band_budget"] = ranScheduler->getBandBudget();
+    if (qbvPort && ranScheduler)
+        ack["changed_domains"] = std::move(changed);
     return ack;
 }
 

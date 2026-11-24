@@ -12,33 +12,60 @@ VERSION = 1
 MAX_MESSAGE_BYTES = 16384
 
 
-class BacklogPolicy:
-    """Throttle competing traffic while either measured queue is congested."""
+class BacklogThreshold:
+    """Enter protection at a high watermark and leave after five healthy samples."""
 
     def __init__(self):
         self.healthy_samples = 0
 
-    def __call__(self, observation):
+    def protective_mode(self, observation):
         radio_bytes = observation["ran"]["dl_mac_virtual_buffer_bytes"]
         transport_packets = observation["transport"]["background_queue_packets"]
-        core = observation["core"]
-        active_rate = core["rate_bps"]
-
         if radio_bytes >= 8000 or transport_packets >= 8:
             self.healthy_samples = 0
-            if active_rate != 2_000_000:
-                return self.set_rate(core["flow_id"], 2_000_000)
-        elif radio_bytes <= 2000 and transport_packets <= 1:
+            return True
+        if radio_bytes <= 2000 and transport_packets <= 1:
             self.healthy_samples += 1
-            if self.healthy_samples >= 5 and active_rate != 20_000_000:
-                return self.set_rate(core["flow_id"], 20_000_000)
+            if self.healthy_samples >= 5:
+                return False
         else:
             self.healthy_samples = 0
         return None
 
-    @staticmethod
-    def set_rate(flow_id, rate_bps):
-        return {"type": "set_upf_rate", "flow_id": flow_id, "rate_bps": rate_bps}
+
+class BacklogPolicy(BacklogThreshold):
+    def __call__(self, observation):
+        protect = self.protective_mode(observation)
+        if protect is None:
+            return None
+        core = observation["core"]
+        rate = 2_000_000 if protect else 20_000_000
+        if core["rate_bps"] != rate:
+            return {"type": "set_upf_rate", "flow_id": core["flow_id"], "rate_bps": rate}
+        return None
+
+
+class CrossDomainBaseline(BacklogThreshold):
+    """Switch between fixed nominal and protection profiles using queue thresholds."""
+
+    def __call__(self, observation):
+        protect = self.protective_mode(observation)
+        transport = observation["transport"]
+        if protect is None or not transport["qbv_update_allowed"]:
+            return None
+        core = observation["core"]
+        ran = observation["ran"]
+        max_bands = ran["dl_max_bands"]
+        rate, window, bands = (2_000_000, 1600, max_bands) if protect else (
+            20_000_000, 600, max(1, max_bands * 2 // 3)
+        )
+        active = (core["rate_bps"], transport["priority_window_us"], ran["dl_band_budget"])
+        if active == (rate, window, bands):
+            return None
+        return {
+            "type": "apply_cross_domain", "rate_bps": rate,
+            "priority_window_us": window, "bands": bands,
+        }
 
 
 def read_message(stream):
@@ -90,9 +117,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765, help="localhost port, 0 to auto-assign")
     parser.add_argument("--port-file", type=Path, help="write the bound port here when ready")
-    parser.add_argument("--policy", help="optional Python module:function accepting an observation")
+    algorithm = parser.add_mutually_exclusive_group()
+    algorithm.add_argument("--policy", help="optional Python module:function accepting an observation")
+    algorithm.add_argument("--builtin", choices=("upf", "cross-domain"), default="upf")
     args = parser.parse_args()
-    policy = BacklogPolicy()
+    policy = CrossDomainBaseline() if args.builtin == "cross-domain" else BacklogPolicy()
     if args.policy:
         module, separator, name = args.policy.partition(":")
         if not separator or not module or not name:

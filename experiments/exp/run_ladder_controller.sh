@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 # A100, with the existing OMNeT++/INET/Simu5G environment.
 set -eo pipefail
+case "${1:-}" in
+    "")
+        ini=omnetpp_controller.ini
+        builtin=upf
+        configs=(ControllerBaseline ControllerStaticCap ControllerExternal ControllerExternalShifted)
+        summary=ladder_control_kpis.py
+        ;;
+    --cross-domain)
+        ini=omnetpp_cross_domain.ini
+        builtin=cross-domain
+        configs=(CrossDomainFixedNominal CrossDomainFixedProtect CrossDomainExternal CrossDomainExternalShifted)
+        summary=ladder_cross_domain_kpis.py
+        ;;
+    *)
+        echo "Usage: $0 [--cross-domain]" >&2
+        exit 2
+        ;;
+esac
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$repo/omnetpp-6.4.0/setenv"
 export LD_LIBRARY_PATH="$repo/../conda-envs/nasctime/lib:$repo/omnetpp-6.4.0/lib"
@@ -21,14 +39,14 @@ stop_controller() {
 }
 trap stop_controller EXIT
 
-for config in ControllerBaseline ControllerStaticCap ControllerExternal ControllerExternalShifted; do
+for config in "${configs[@]}"; do
     output="$results/$config"
     mkdir "$output"
-    launch=(../../../bin/nasctime-run.sh -f omnetpp_controller.ini -u Cmdenv
+    launch=(../../../bin/nasctime-run.sh -f "$ini" -u Cmdenv
             -c "$config" -r 0 "--result-dir=$output")
-    if [[ "$config" == ControllerExternal* ]]; then
+    if [[ "$config" == *External* ]]; then
         python3 -B "$repo/experiments/exp/ladder_controller.py" \
-            --port 0 --port-file "$output/controller.port" >"$output/controller.log" 2>&1 &
+            --builtin "$builtin" --port 0 --port-file "$output/controller.port" >"$output/controller.log" 2>&1 &
         controller_pid=$!
         port=
         for ((attempt=0; attempt<100; attempt++)); do
@@ -59,11 +77,11 @@ for config in ControllerBaseline ControllerStaticCap ControllerExternal Controll
         fi
         controller_pid=
     fi
-    if [[ "$config" == ControllerExternalShifted ]]; then
+    if [[ "$config" == *ExternalShifted ]]; then
         python3 -B "$repo/experiments/exp/competition_trace.py" "$output" --burst-start .8 --burst-stop 1.2
     else
         python3 -B "$repo/experiments/exp/competition_trace.py" "$output"
     fi
 done
-python3 -B "$repo/experiments/exp/ladder_control_kpis.py" "$results" >"$results/control-kpis.csv"
+python3 -B "$repo/experiments/exp/$summary" "$results" >"$results/control-kpis.csv"
 cat "$results/control-kpis.csv"
