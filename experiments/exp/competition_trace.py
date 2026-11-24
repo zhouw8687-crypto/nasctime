@@ -88,6 +88,14 @@ def read_capture(path, tunneled):
 
 
 def write_trace(directory, vectors):
+    networks = {
+        module.split(".", 1)[0]
+        for module, signal in vectors
+        if signal == "packetSent:vector(packetBytes)"
+    }
+    if len(networks) != 1:
+        raise ValueError("Expected one network with sender vectors")
+    (network,) = networks
     captures = {
         field: read_capture(directory / filename, tunneled)
         for field, filename, tunneled in CAPTURES
@@ -99,7 +107,7 @@ def write_trace(directory, vectors):
             *captures, "ue_rx_ns", "first_unobserved",
         ])
         expected = set()
-        for source, _, sent, delivery, duplicates in collect_flows(vectors, "ProjectBookLadder", PAIRS):
+        for source, _, sent, delivery, duplicates in collect_flows(vectors, network, PAIRS):
             if duplicates:
                 raise ValueError(f"{source}: unexpectedly received duplicate application packets")
             port = 6200 if source == PAIRS[0][0] else 6202
