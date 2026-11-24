@@ -16,6 +16,7 @@
 #include "inet/queueing/queue/PacketQueue.h"
 #include "simu5g/stack/mac/LteMacBase.h"
 #include "simu5g/stack/mac/buffer/LteMacBuffer.h"
+#include "nasctime/control/ControlledDlScheduler.h"
 #include "nasctime/control/FlowPolicer.h"
 #include "nasctime/control/QbvPort.h"
 
@@ -143,6 +144,7 @@ class ControllerBridge : public cSimpleModule
     inet::queueing::PacketQueue *priorityQueue = nullptr;
     inet::queueing::PacketQueue *backgroundQueue = nullptr;
     std::optional<QbvPort> qbvPort;
+    ControlledDlScheduler *ranScheduler = nullptr;
     DeliveryCounter priorityDelivery;
     DeliveryCounter backgroundDelivery;
     Connection connection;
@@ -177,6 +179,8 @@ void ControllerBridge::initialize()
     backgroundQueue = check_and_cast<inet::queueing::PacketQueue *>(find("backgroundQueueModule"));
     if (!par("transportShaperModule").stdstringValue().empty())
         qbvPort.emplace().bind(find("transportShaperModule"));
+    if (!par("ranSchedulerModule").stdstringValue().empty())
+        ranScheduler = check_and_cast<ControlledDlScheduler *>(find("ranSchedulerModule"));
     find("prioritySinkModule")->subscribe("packetReceived", &priorityDelivery);
     find("backgroundSinkModule")->subscribe("packetReceived", &backgroundDelivery);
 
@@ -228,6 +232,11 @@ json ControllerBridge::observe() const
         observation["transport"]["cycle_us"] = QbvPort::cycleUs;
         observation["transport"]["priority_window_us"] = qbvPort->getPriorityWindowUs();
         observation["transport"]["qbv_update_allowed"] = qbvPort->canApplyNow();
+    }
+    if (ranScheduler) {
+        observation["ran"]["dl_band_budget"] = ranScheduler->getBandBudget();
+        observation["ran"]["dl_max_bands"] = ranScheduler->getMaxBands();
+        observation["ran"]["dl_last_slot_allocated_blocks"] = ranScheduler->getLastSlotAllocatedBlocks();
     }
     return observation;
 }
@@ -285,6 +294,21 @@ json ControllerBridge::execute(const json& decision)
                     reason = "window_already_active";
                 }
             }
+            else if (type == "set_ran_dl_budget" && ranScheduler && action.contains("node") &&
+                    action.at("node") == "gnb1" && hasInteger(action, "bands") &&
+                    action.at("bands").get<double>() >= 1 &&
+                    action.at("bands").get<double>() <= ranScheduler->getMaxBands()) {
+                const int budget = action.at("bands").get<int>();
+                if (budget != ranScheduler->getBandBudget()) {
+                    ranScheduler->setBandBudget(budget);
+                    status = "applied";
+                    reason = "band_budget_changed";
+                }
+                else {
+                    status = "unchanged";
+                    reason = "budget_already_active";
+                }
+            }
         }
         else
             reason = "invalid_action";
@@ -297,6 +321,8 @@ json ControllerBridge::execute(const json& decision)
                 {"rate_bps", policer->getRateBps()}};
     if (qbvPort)
         ack["priority_window_us"] = qbvPort->getPriorityWindowUs();
+    if (ranScheduler)
+        ack["dl_band_budget"] = ranScheduler->getBandBudget();
     return ack;
 }
 

@@ -79,7 +79,7 @@ module LteMacEnb extends LteMacBase
 
         // Scheduler Types
         string ulSchedulerType @enum(LteSchedulerEnbUl,NrSchedulerGnbUl) = default("LteSchedulerEnbUl");
-        string dlSchedulerType @enum(LteSchedulerEnbDl) = default("LteSchedulerEnbDl");
+        string dlSchedulerType = default("LteSchedulerEnbDl"); // Must implement ILteSchedulerEnbDl.
 
         // Proportional Fair parameters
         double pfAlpha = default(0.95);

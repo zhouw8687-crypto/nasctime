@@ -11,6 +11,7 @@ simple ControllerBridge
         double stopTime @unit(s) = default(1600ms);
         string policerModule;
         string ranMacModule;
+        string ranSchedulerModule = default("");
         string priorityQueueModule;
         string backgroundQueueModule;
         string transportShaperModule = default("");
