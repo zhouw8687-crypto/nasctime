@@ -80,7 +80,7 @@ def read_message(stream):
     return message
 
 
-def serve(listener, policy):
+def serve(listener, policy, on_ack=None):
     listener.settimeout(10)
     connection, _ = listener.accept()
     with connection, connection.makefile("rwb") as stream:
@@ -106,7 +106,9 @@ def serve(listener, policy):
             ack = read_message(stream)
             if ack is None or ack["type"] != "ack" or ack["request_id"] != request:
                 raise ValueError(f"Missing acknowledgement for request {request}")
-            if ack["status"] not in ("noop", "unchanged"):
+            if on_ack is not None:
+                on_ack(ack)
+            elif ack["status"] not in ("noop", "unchanged"):
                 print(json.dumps(ack), flush=True)
             last_request = request
         if last_request == 0:
