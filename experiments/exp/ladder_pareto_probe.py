@@ -28,9 +28,9 @@ ACTIONS = tuple(itertools.product(RATES, WINDOWS, BANDS))
 
 
 def workloads():
-    train = [(gap, x, link, 0) for gap, x, link in itertools.product((500, 850, 1400, 2400), (120, 255, 400), (10, 14))]
+    train = [(gap, x, link, 0) for gap, x, link in itertools.product((500, 850, 1400, 2400), (120, 255, 400), (10, 100))]
     test = [(gap, x, link, seed) for gap, (x, link, seed) in itertools.product(
-        (650, 1100, 1900, 2800), ((170, 10, 1), (345, 14, 2))
+        (650, 1100, 1900, 2800), ((170, 10, 1), (345, 100, 2))
     )]
     return {
         group: [
