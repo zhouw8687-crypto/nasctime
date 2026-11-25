@@ -18,6 +18,7 @@
 
 #include "nasctime/nodes/frer/IFrerTransportBinding.h"
 #include "inet/common/packet/Packet.h"
+#include "nasctime/nodes/frer/FrerStreamMap.h"
 #include "inet/common/InitStages.h"
 
 using namespace omnetpp;
@@ -29,6 +30,7 @@ class FrerReplicator : public cSimpleModule
     // --- Configuration ---
     std::set<int> frerStreamDscpSet;   // DSCPs eligible for FRER
     int replicaDscp;
+    FrerStreamMap streamMap;
     std::string transportBindingType;
     bool ethernetFramed = false;
 
@@ -36,8 +38,7 @@ class FrerReplicator : public cSimpleModule
     IFrerTransportBinding *transportBinding = nullptr;
 
     // --- Per-stream 16-bit sequence counters ---
-    // Key: DSCP value (used as stream identifier)
-    std::map<int, uint16_t> sequenceCounters;
+    std::map<uint16_t, uint16_t> sequenceCounters;
 
     // --- Gate IDs ---
     int inGateId;
@@ -67,10 +68,10 @@ class FrerReplicator : public cSimpleModule
     virtual bool isFrerEligible(Packet *pkt, int &dscp);
 
     /** Sequence generation (802.1CB §7.4): get next seq# for this stream. */
-    virtual uint16_t nextSequenceNumber(int streamId);
+    virtual uint16_t nextSequenceNumber(uint16_t streamId);
 
     /** Stream splitting (802.1CB §7.7): replicate and send both copies. */
-    virtual void replicateAndSend(Packet *pkt, int dscp);
+    virtual void replicateAndSend(Packet *pkt, uint16_t streamId, int dscp);
 };
 
 #endif

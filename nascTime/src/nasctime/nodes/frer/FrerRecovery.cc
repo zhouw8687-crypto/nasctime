@@ -31,6 +31,7 @@ void FrerRecovery::initialize()
     outGateId = gate("out")->getId();
 
     replicaDscp   = par("replicaDscp");
+    streamMap.load(par("streamMap"), replicaDscp);
     windowSize    = par("windowSize");
     windowTimeout = par("windowTimeout");
     ethernetFramed = par("ethernetFramed");
@@ -88,13 +89,24 @@ void FrerRecovery::handleMessage(cMessage *msg)
         fcs    = pkt->popAtBack<EthernetFcs>(B(4));
     }
 
-    // --- Step 2: Check DSCP for FRER eligibility ---
-    auto ipHdr = pkt->peekAtFront<Ipv4Header>();
-    int dscp = ipHdr->getDscp();
-    bool isFrer = frerStreamDscpSet.count(dscp) > 0 || dscp == replicaDscp;
+    const auto ipHdr = streamMap.empty() ? pkt->peekAtFront<Ipv4Header>() :
+        (pkt->getDataLength() > b(0) ? dynamicPtrCast<const Ipv4Header>(pkt->peekAtFront<Chunk>()) : nullptr);
+    const auto *entry = ipHdr && !streamMap.empty() ? streamMap.find(*pkt, *ipHdr) : nullptr;
+    int dscp = ipHdr ? ipHdr->getDscp() : -1;
+    bool isFragment = ipHdr && (ipHdr->getMoreFragments() || ipHdr->getFragmentOffset() > 0);
+    const bool legacyEligible = streamMap.empty() &&
+        (frerStreamDscpSet.count(dscp) > 0 || dscp == replicaDscp);
+    Ptr<const simu5g::FrerSequenceHeader> frerHdr;
+    if (legacyEligible && !isFragment && pkt->getDataLength() >= B(4))
+        frerHdr = dynamicPtrCast<const simu5g::FrerSequenceHeader>(pkt->peekAtBack<Chunk>(B(4)));
+    if (entry && ipHdr->getTotalLengthField() >= ipHdr->getChunkLength() + B(8) + B(4)) {
+        frerHdr = dynamicPtrCast<const simu5g::FrerSequenceHeader>(
+            pkt->peekDataAt<Chunk>(ipHdr->getTotalLengthField() - B(4), B(4)));
+    }
+    const bool isFrer = legacyEligible || frerHdr;
 
     if (!isFrer) {
-        // Not a FRER packet — restore Ethernet and pass through
+        // Restore framing for packets outside this recovery instance.
         if (ethernetFramed) {
             pkt->insertAtFront(ethHdr);
             pkt->insertAtBack(fcs);
@@ -105,41 +117,24 @@ void FrerRecovery::handleMessage(cMessage *msg)
         return;
     }
 
-    // --- Step 3: Extract stream ID and sequence number ---
-    // Try R-TAG first (primary), fall back to IPv4 ID (secondary).
     uint16_t streamId;
     uint16_t seqNum;
-    bool rtagFound = false;
-    bool isReplica = (dscp == replicaDscp);
-    bool isFragment = ipHdr->getMoreFragments()
-                      || ipHdr->getFragmentOffset() > 0;
-
-    if (!isFragment) {
-        // Non-fragmented packet: R-TAG should be at the back (if replicated)
-        auto tailChunk = pkt->peekAtBack<Chunk>(B(4));
-        auto frerHdr = dynamicPtrCast<const simu5g::FrerSequenceHeader>(tailChunk);
-
-        if (frerHdr) {
-            // R-TAG found — use it (standards-compliant path)
-            streamId = frerHdr->getStreamId();
-            seqNum   = frerHdr->getSequenceNumber();
-            rtagFound = true;
-
-            // Strip R-TAG from packet
-            pkt->popAtBack<simu5g::FrerSequenceHeader>(B(4));
-
-            EV_INFO << "FrerRecovery: R-TAG detected, stream="
-                    << streamId << " seq=" << seqNum << endl;
-        }
+    const bool isReplica = dscp == replicaDscp;
+    if (frerHdr) {
+        streamId = frerHdr->getStreamId();
+        seqNum = frerHdr->getSequenceNumber();
+        if (entry && (streamId != entry->streamId || (!isReplica && dscp != entry->primaryDscp)))
+            throw cRuntimeError("FRER trailer (stream %d, DSCP %d) disagrees with streamMap (stream %d, primary DSCP %d)",
+                                streamId, dscp, entry->streamId, entry->primaryDscp);
+        if (entry)
+            pkt->setBackOffset(pkt->getFrontOffset() + ipHdr->getTotalLengthField());
+        pkt->popAtBack<simu5g::FrerSequenceHeader>(B(4));
     }
-
-    if (!rtagFound) {
+    else {
         // Fallback: use IPv4 Identification field
         seqNum = ipHdr->getIdentification();
 
-        // Determine streamId from DSCP
-        // ASSUMPTION: single primary stream for replica DSCP mapping.
-        // Multi-stream FRER would need a per-replica DSCP lookup table.
+        // The legacy replica mark identifies only one primary DSCP.
         if (isReplica) {
             streamId = frerStreamDscpSet.empty()
                            ? 0
@@ -150,7 +145,7 @@ void FrerRecovery::handleMessage(cMessage *msg)
 
         EV_INFO << "FrerRecovery: fallback to IPv4 ID, stream="
                 << streamId << " seq=" << seqNum
-                << (isFragment ? " (fragment)" : " (no R-TAG)") << endl;
+                << (isFragment ? " (fragment)" : " (no trailer)") << endl;
     }
 
     // --- Step 4: Vector Recovery Algorithm ---
@@ -159,19 +154,24 @@ void FrerRecovery::handleMessage(cMessage *msg)
     switch (result) {
 
     case ACCEPT: {
+        int primaryDscp = entry ? entry->primaryDscp : streamId;
+        if (entry || isReplica) {
+            auto ipHdrMut = pkt->removeAtFront<Ipv4Header>();
+            if (entry)
+                ipHdrMut->setTotalLengthField(ipHdrMut->getTotalLengthField() - B(4));
+            ipHdrMut->setDscp(primaryDscp);
+            if (entry)
+                ipHdrMut->updateChecksum();
+            pkt->insertAtFront(ipHdrMut);
+        }
         if (isReplica) {
             numRecoveredReplica++;
             emit(recoveredFromReplicaSignal, numRecoveredReplica);
 
-            // Restore original DSCP
-            auto ipHdrMut = pkt->removeAtFront<Ipv4Header>();
-            ipHdrMut->setDscp(streamId);
-            pkt->insertAtFront(ipHdrMut);
-
             EV_INFO << "FrerRecovery: ACCEPT stream=" << streamId
                     << " seq=" << seqNum << " source=REPLICA"
-                    << " (DSCP " << dscp << " -> " << streamId << ")"
-                    << (rtagFound ? " [R-TAG]" : " [IPv4 ID]") << endl;
+                    << " (DSCP " << dscp << " -> " << primaryDscp << ")"
+                    << (frerHdr ? " [trailer]" : " [IPv4 ID]") << endl;
         }
         else {
             numRecoveredPrimary++;
@@ -179,7 +179,7 @@ void FrerRecovery::handleMessage(cMessage *msg)
 
             EV_INFO << "FrerRecovery: ACCEPT stream=" << streamId
                     << " seq=" << seqNum << " source=PRIMARY"
-                    << (rtagFound ? " [R-TAG]" : " [IPv4 ID]") << endl;
+                    << (frerHdr ? " [trailer]" : " [IPv4 ID]") << endl;
         }
 
         // Restore Ethernet framing and forward to DsTtTranslator

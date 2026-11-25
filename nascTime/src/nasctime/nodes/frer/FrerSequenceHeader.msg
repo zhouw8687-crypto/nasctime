@@ -22,6 +22,6 @@ namespace simu5g;
 class FrerSequenceHeader extends inet::FieldsChunk
 {
     chunkLength = B(4);
-    uint16_t streamId = 0;         // identifies the compound stream (== primary DSCP)
+    uint16_t streamId = 0;         // compound stream identifier (legacy default: primary DSCP)
     uint16_t sequenceNumber = 0;   // 16-bit wrapping counter per stream
 }

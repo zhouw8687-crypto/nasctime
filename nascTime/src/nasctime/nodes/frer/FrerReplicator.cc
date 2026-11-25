@@ -32,6 +32,7 @@ void FrerReplicator::initialize(int stage)
         outGateId = gate("out")->getId();
 
         replicaDscp = par("replicaDscp");
+        streamMap.load(par("streamMap"), replicaDscp);
         transportBindingType = par("transportBinding").stdstringValue();
         ethernetFramed     = par("ethernetFramed");
 
@@ -138,14 +139,32 @@ void FrerReplicator::handleMessage(cMessage *msg)
     auto pkt = check_and_cast<Packet *>(msg);
     int dscp = -1;
 
-    if (isFrerEligible(pkt, dscp)) {
-        replicateAndSend(pkt, dscp);
+    if (streamMap.empty()) {
+        if (isFrerEligible(pkt, dscp)) {
+            replicateAndSend(pkt, static_cast<uint16_t>(dscp), dscp);
+            return;
+        }
     }
     else {
-        numPassedThrough++;
-        emit(passedThroughSignal, numPassedThrough);
-        send(pkt, outGateId);
+        b ipOffset = b(0);
+        if (ethernetFramed)
+            ipOffset = pkt->peekAtFront<EthernetMacHeader>()->getChunkLength();
+        if (pkt->getDataLength() > ipOffset) {
+            const auto ip = dynamicPtrCast<const Ipv4Header>(pkt->peekDataAt<Chunk>(ipOffset));
+            const auto *entry = ip ? streamMap.find(*pkt, *ip, ipOffset) : nullptr;
+            if (entry) {
+                if (ip->getDscp() != entry->primaryDscp)
+                    throw cRuntimeError("FRER stream %d: expected primary DSCP %d, got %d",
+                                        entry->streamId, entry->primaryDscp, ip->getDscp());
+                replicateAndSend(pkt, entry->streamId, entry->primaryDscp);
+                return;
+            }
+        }
     }
+
+    numPassedThrough++;
+    emit(passedThroughSignal, numPassedThrough);
+    send(pkt, outGateId);
 }
 
 // ============================================================================
@@ -174,7 +193,7 @@ bool FrerReplicator::isFrerEligible(Packet *pkt, int &dscp)
 // Sequence generation (802.1CB §7.4)
 // ============================================================================
 
-uint16_t FrerReplicator::nextSequenceNumber(int streamId)
+uint16_t FrerReplicator::nextSequenceNumber(uint16_t streamId)
 {
     uint16_t seq = sequenceCounters[streamId];
     sequenceCounters[streamId] = static_cast<uint16_t>(seq + 1);
@@ -185,7 +204,7 @@ uint16_t FrerReplicator::nextSequenceNumber(int streamId)
 // Stream splitting (802.1CB §7.7)
 // ============================================================================
 
-void FrerReplicator::replicateAndSend(Packet *pkt, int dscp)
+void FrerReplicator::replicateAndSend(Packet *pkt, uint16_t streamId, int dscp)
 {
     // For Ethernet-framed packets, strip framing first
     inet::Ptr<const EthernetMacHeader> ethHdr;
@@ -199,34 +218,46 @@ void FrerReplicator::replicateAndSend(Packet *pkt, int dscp)
     // --- MTU guard: prevent IP fragmentation ---
     // FRER-eligible flows must be sized so payload + headers + R-TAG <= 1500.
     // If not, skip replication to avoid fragmenting the R-TAG across packets.
-    if (pkt->getTotalLength() + B(4) > B(1500)) {
+    if (pkt->getDataLength() + B(4) > B(1500)) {
         EV_WARN << "FrerReplicator: packet too large for FRER ("
-                << pkt->getTotalLength() << " + 4 B > 1500 B MTU), "
+                << pkt->getDataLength() << " + 4 B > 1500 B MTU), "
                 << "passing through without replication: "
                 << pkt->getName() << endl;
+        if (ethernetFramed) {
+            pkt->insertAtFront(ethHdr);
+            pkt->insertAtBack(fcs);
+        }
         numPassedThrough++;
         emit(passedThroughSignal, numPassedThrough);
         send(pkt, outGateId);
         return;
     }
 
-    uint16_t seqNum = nextSequenceNumber(dscp);
+    uint16_t seqNum = nextSequenceNumber(streamId);
 
-    // --- PRIMARY encoding: R-TAG (FrerSequenceHeader) at packet back ---
-    // Standards-compliant 802.1CB R-TAG carrying streamId + sequenceNumber.
-    // Inserted at the back to preserve the IPv4 header at the front for
-    // downstream routing and dispatcher compatibility.
+    // The simulation trailer carries stream ID and sequence without moving
+    // the IPv4 header used by the transport binding and dispatcher.
     auto frerHdr = makeShared<simu5g::FrerSequenceHeader>();
-    frerHdr->setStreamId(static_cast<uint16_t>(dscp));
+    frerHdr->setStreamId(streamId);
     frerHdr->setSequenceNumber(seqNum);
+    if (!streamMap.empty()) {
+        // Keep the trailer inside the IPv4 datagram. IPv4 input trims
+        // bytes beyond Total Length as lower-layer padding.
+        auto ipHdr = pkt->removeAtFront<Ipv4Header>();
+        auto payloadLength = ipHdr->getTotalLengthField() - ipHdr->getChunkLength();
+        pkt->setBackOffset(pkt->getFrontOffset() + payloadLength);
+        ipHdr->setTotalLengthField(ipHdr->getTotalLengthField() + frerHdr->getChunkLength());
+        ipHdr->updateChecksum();
+        pkt->insertAtFront(ipHdr);
+    }
     pkt->insertAtBack(frerHdr);
 
-    // --- SECONDARY encoding: IPv4 Identification field ---
-    // Fallback for edge cases (IP fragments, detection failures).
-    // Also aids debugging: the seq# is visible in the IPv4 header.
-    auto ipHdr = pkt->removeAtFront<Ipv4Header>();
-    ipHdr->setIdentification(seqNum);
-    pkt->insertAtFront(ipHdr);
+    if (streamMap.empty()) {
+        // Legacy fragment recovery uses the IPv4 Identification field.
+        auto ipHdr = pkt->removeAtFront<Ipv4Header>();
+        ipHdr->setIdentification(seqNum);
+        pkt->insertAtFront(ipHdr);
+    }
 
     // Re-add Ethernet framing before dup (both copies need it)
     if (ethernetFramed) {
@@ -234,7 +265,7 @@ void FrerReplicator::replicateAndSend(Packet *pkt, int dscp)
         pkt->insertAtBack(fcs);
     }
 
-    // Create replica as deep copy (includes both R-TAG and IPv4 ID)
+    // Copy the packet with its sequence trailer.
     auto replica = pkt->dup();
     replica->setName((std::string(pkt->getName()) + "-frer-replica").c_str());
 
@@ -264,11 +295,11 @@ void FrerReplicator::replicateAndSend(Packet *pkt, int dscp)
     emit(replicaSentSignal, numReplicaSent);
     send(replica, outGateId);
 
-    EV_INFO << "FrerReplicator: stream=" << dscp
+    EV_INFO << "FrerReplicator: stream=" << streamId
             << " seq=" << seqNum
             << " primary DSCP=" << dscp
             << " replica DSCP=" << replicaDscp
-            << " [R-TAG + IPv4 ID]" << endl;
+            << (streamMap.empty() ? " [trailer + IPv4 ID]" : " [trailer]") << endl;
 }
 
 // ============================================================================

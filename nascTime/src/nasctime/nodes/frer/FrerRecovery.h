@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "inet/common/packet/Packet.h"
+#include "nasctime/nodes/frer/FrerStreamMap.h"
 
 using namespace omnetpp;
 using namespace inet;
@@ -52,6 +53,7 @@ class FrerRecovery : public cSimpleModule
     // --- Configuration ---
     std::set<int> frerStreamDscpSet;
     int replicaDscp;
+    FrerStreamMap streamMap;
     int windowSize;
     simtime_t windowTimeout;
     bool ethernetFramed = true;
@@ -87,8 +89,8 @@ class FrerRecovery : public cSimpleModule
      * track accepted DSCP per sequence-number position for correct
      * IP fragment handling.
      *
-     * @param streamId  primary-stream DSCP
-     * @param seqNum    IPv4 Identification value
+     * @param streamId  compound stream ID (primary DSCP in legacy mode)
+     * @param seqNum    sequence number carried by the received copy
      * @param dscp      actual DSCP of this packet (primary or replica)
      */
     virtual RecoveryResult recoverSequence(uint16_t streamId,

@@ -77,6 +77,8 @@ class DrbTransportBinding : public IFrerTransportBinding
         // Replica: overwrite DSCP so SDAP maps it to DRB 4.
         auto ipHdr = replica->removeAtFront<Ipv4Header>();
         ipHdr->setDscp(replicaDscp_);
+        if (ipHdr->getChecksumMode() == CHECKSUM_COMPUTED)
+            ipHdr->updateChecksum();
         replica->insertAtFront(ipHdr);
     }
 
@@ -115,6 +117,8 @@ class PathDiverseTransportBinding : public IFrerTransportBinding
         //    duplicate identification via DSCP-aware bitmap)
         auto ipHdr = replica->removeAtFront<Ipv4Header>();
         ipHdr->setDscp(replicaDscp_);
+        if (ipHdr->getChecksumMode() == CHECKSUM_COMPUTED)
+            ipHdr->updateChecksum();
         replica->insertAtFront(ipHdr);
 
         // 2. Change InterfaceReq to route through a different PPP interface.

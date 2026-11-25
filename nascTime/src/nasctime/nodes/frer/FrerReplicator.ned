@@ -22,6 +22,10 @@ simple FrerReplicator
         // pass through unchanged.
         string frerStreams = default("7");
 
+        // A nonempty array replaces DSCP-based selection. Configure the same
+        // {udpDestPort, streamId, primaryDscp} entries at both endpoints.
+        object streamMap = default([]);
+
         // DSCP assigned to the replica by DrbTransportBinding.
         // Must correspond to a QFI→DRB mapping in the SDAP configuration.
         int replicaDscp = default(8);

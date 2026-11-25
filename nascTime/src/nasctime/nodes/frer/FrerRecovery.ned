@@ -21,6 +21,10 @@ simple FrerRecovery
         // Must match the frerStreams parameter of FrerReplicator.
         string frerStreams = default("7");
 
+        // A nonempty array replaces DSCP-based selection. Configure the same
+        // {udpDestPort, streamId, primaryDscp} entries at both endpoints.
+        object streamMap = default([]);
+
         // DSCP used for replica packets (must match FrerReplicator).
         int replicaDscp = default(8);
 
