@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    The N3 downlink targets gnb1%cellular. Its last wired next hop uses gnb1%pppIf.
+    The fixed-address block preserves tunnel and application endpoints at link failure.
+-->
+<reuse>
+    <config id="direct">
+        <interface hosts="**" address="10.x.x.x" netmask="255.x.x.x" />
+        <route hosts="upf" destination="gnb1%cellular" netmask="/32" gateway="NE1" interface="ppp0" metric="0" />
+        <route hosts="NE1" destination="gnb1%cellular" netmask="/32" gateway="NE3%eth1" interface="eth1" metric="0" />
+        <route hosts="NE3" destination="gnb1%cellular" netmask="/32" gateway="NE5%eth1" interface="eth2" metric="0" />
+        <route hosts="NE5" destination="gnb1%cellular" netmask="/32" gateway="gnb1%pppIf" interface="ppp0" metric="0" />
+    </config>
+    <config id="detour">
+        <interface hosts="**" address="10.x.x.x" netmask="255.x.x.x" />
+        <route hosts="upf" destination="gnb1%cellular" netmask="/32" gateway="NE1" interface="ppp0" metric="0" />
+        <route hosts="NE1" destination="gnb1%cellular" netmask="/32" gateway="NE2%eth0" interface="eth0" metric="0" />
+        <route hosts="NE2" destination="gnb1%cellular" netmask="/32" gateway="NE4%eth1" interface="eth1" metric="0" />
+        <route hosts="NE4" destination="gnb1%cellular" netmask="/32" gateway="NE6%eth1" interface="eth2" metric="0" />
+        <route hosts="NE6" destination="gnb1%cellular" netmask="/32" gateway="NE5%eth0" interface="eth0" metric="0" />
+        <route hosts="NE5" destination="gnb1%cellular" netmask="/32" gateway="gnb1%pppIf" interface="ppp0" metric="0" />
+    </config>
+    <config id="fixed-addresses">
+        <interface hosts="NE1" names="ppp0" address="10.0.0.1" netmask="255.255.255.252" metric="1" />
+        <interface hosts="upf" names="ppp0" address="10.0.0.2" netmask="255.255.255.252" metric="1" />
+        <interface hosts="NE1" names="eth0" address="10.0.0.5" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE2" names="eth0" address="10.0.0.6" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE1" names="eth1" address="10.0.0.9" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE3" names="eth1" address="10.0.0.10" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE2" names="ppp0" address="10.0.0.13" netmask="255.255.255.252" metric="1" />
+        <interface hosts="upf" names="ppp1" address="10.0.0.14" netmask="255.255.255.252" metric="1" />
+        <interface hosts="NE2" names="eth1" address="10.0.0.17" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE4" names="eth1" address="10.0.0.18" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE3" names="eth0" address="10.0.0.21" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE4" names="eth0" address="10.0.0.22" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE3" names="eth2" address="10.0.0.25" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE5" names="eth1" address="10.0.0.26" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE4" names="eth2" address="10.0.0.29" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE6" names="eth1" address="10.0.0.30" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE5" names="ppp0" address="10.0.0.33" netmask="255.255.255.252" metric="1" />
+        <interface hosts="gnb1" names="pppIf" address="10.0.0.34" netmask="255.255.255.252" metric="1" />
+        <interface hosts="NE5" names="eth0" address="10.0.0.37" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE6" names="eth0" address="10.0.0.38" netmask="255.255.255.252" metric="20" />
+        <interface hosts="NE6" names="ppp0" address="10.0.0.41" netmask="255.255.255.252" metric="1" />
+        <interface hosts="gnb2" names="pppIf" address="10.0.0.42" netmask="255.255.255.252" metric="1" />
+        <interface hosts="upf" names="dnPpp" address="10.0.0.45" netmask="255.255.255.252" metric="1" />
+        <interface hosts="server" names="ppp0" address="10.0.0.46" netmask="255.255.255.252" metric="1" />
+        <interface hosts="gnb1" names="cellular" address="10.0.0.49" netmask="255.255.255.248" metric="1" />
+        <interface hosts="gnb2" names="cellular" address="10.0.0.50" netmask="255.255.255.248" metric="1" />
+        <interface hosts="ue[0]" names="cellular" address="10.0.0.51" netmask="255.255.255.248" metric="1" />
+        <interface hosts="ue[1]" names="cellular" address="10.0.0.52" netmask="255.255.255.248" metric="1" />
+        <interface hosts="gnb1" names="pppMEHostIf" address="10.0.0.57" netmask="255.255.255.252" metric="1" />
+        <interface hosts="gnb2" names="pppMEHostIf" address="10.0.0.61" netmask="255.255.255.252" metric="1" />
+    </config>
+    <scenario>
+        <at t="700ms">
+            <disconnect src-module="NE3" dest-module="NE5" />
+        </at>
+    </scenario>
+</reuse>
