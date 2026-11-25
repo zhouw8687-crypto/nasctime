@@ -6,6 +6,7 @@ import bisect
 import csv
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 from ladder_control_kpis import check
@@ -77,9 +78,8 @@ def check_policy_trace(directory, events):
     return initial, transitions, observations
 
 
-def check_data_plane(directory, initial, transitions, observations):
-    with (directory / "packet-trace.csv").open(encoding="utf-8", newline="") as handle:
-        policer_losses = [row for row in csv.DictReader(handle) if row["first_unobserved"] == "upf_n3_tx_ns"]
+def check_data_plane(directory, initial, transitions, observations, packets):
+    policer_losses = [row for row in packets if row["first_unobserved"] == "upf_n3_tx_ns"]
     check(
         len(policer_losses) == observations[-1]["core"]["dropped_packets"]
         and all(row["flow"] == "background" for row in policer_losses),
@@ -124,6 +124,20 @@ def check_data_plane(directory, initial, transitions, observations):
     return len(policer_losses), departures, peak_by_budget
 
 
+def background_burst_outcomes(background, packets):
+    first, last = (round(float(background[edge]) * 1e9) for edge in ("start_s", "stop_s"))
+    cohort = [row for row in packets if row["flow"] == "background"
+              and first <= int(row["server_tx_ns"]) < last]
+    counts = Counter(row["first_unobserved"] for row in cohort)
+    check(len(cohort) == int(background["sent"]) and counts[""] == int(background["delivered"]),
+          "background burst counts disagree between packet traces and application KPIs")
+    transport_stages = ("ne1_egress_ns", "ne5_ingress_ns", "ne5_to_gnb_ns")
+    return (
+        counts["upf_n6_rx_ns"], counts["upf_n3_tx_ns"],
+        sum(counts[stage] for stage in transport_stages), counts["ue_rx_ns"],
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("result_dir", type=Path)
@@ -133,13 +147,17 @@ def main():
         "config", "burst_start_s", "burst_end_s", "priority_sent", "priority_delivered", "priority_p99_ms",
         "background_sent", "background_delivered", "upf_drops_total", "ne1_gate_departures",
         "peak_dl_blocks_by_budget", "policy_switches_ms",
+        "background_burst_missing_at_upf_n6", "background_burst_missing_at_upf_n3",
+        "background_burst_missing_in_transport", "background_burst_missing_after_gnb_input",
     ])
     first_switches = []
     for config in CONFIGS:
         directory = root / config
         with (directory / "control.jsonl").open(encoding="utf-8") as handle:
             initial, transitions, observations = check_policy_trace(directory, list(map(json.loads, handle)))
-        drops, departures, peaks = check_data_plane(directory, initial, transitions, observations)
+        with (directory / "packet-trace.csv").open(encoding="utf-8", newline="") as handle:
+            packets = list(csv.DictReader(handle))
+        drops, departures, peaks = check_data_plane(directory, initial, transitions, observations, packets)
         with (directory / "flows.csv").open(encoding="utf-8", newline="") as handle:
             priority, background = [row for row in csv.DictReader(handle) if row["window"] == "phase_2"]
         if transitions:
@@ -149,6 +167,7 @@ def main():
             f"{float(priority['p99_us']) / 1000:.3f}", background["sent"], background["delivered"],
             drops, departures, " ".join(f"{budget}:{count}" for budget, count in sorted(peaks.items())),
             " ".join(str(time // 1_000_000) for time in transitions),
+            *background_burst_outcomes(background, packets),
         ])
     check(first_switches[1] - first_switches[0] == 200_000_000,
           "the first joint policy did not follow the 200 ms change in traffic")
