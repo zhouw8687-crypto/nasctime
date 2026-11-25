@@ -47,13 +47,13 @@ def resource_cost(action):
     return bands / max(BANDS) + window / 5000
 
 
-def evaluate(folder):
+def evaluate(folder, critical_deadline_s=CRITICAL_DEADLINE_S):
     (vector,) = folder.glob("*.vec")
     vectors = load_vectors(vector, lambda _, name: name in APP_SIGNALS)
     scores = {}
     for (_, _, sent, delivery, _), (flow, deadline) in zip(
         collect_flows(vectors, "ControlledCompetition", PAIRS),
-        (("critical", CRITICAL_DEADLINE_S), ("background", BACKGROUND_DEADLINE_S)), strict=True,
+        (("critical", critical_deadline_s), ("background", BACKGROUND_DEADLINE_S)), strict=True,
     ):
         cohort = [seq for seq, (time, _, _) in enumerate(sent) if WINDOW[0] <= time < WINDOW[1]]
         received = [delivery[seq] for seq in cohort if seq in delivery]
