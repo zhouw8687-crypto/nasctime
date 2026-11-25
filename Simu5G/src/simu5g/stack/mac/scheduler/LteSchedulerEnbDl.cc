@@ -31,19 +31,14 @@ bool LteSchedulerEnbDl::checkEligibility(MacNodeId id, Codeword& cw, GHz carrier
     // check if HARQ buffer has already been created for this node
     if (harqTxBuff->find(id) != harqTxBuff->end()) {
         LteHarqBufferTx *dlHarq = harqTxBuff->at(id);
-        UnitList freeUnits = dlHarq->firstAvailable();
+        const UnitList freeUnits = dlHarq->firstAvailable();
+        // Keep the SDU queued until a HARQ process and a free codeword are available.
+        if (freeUnits.first == HARQ_NONE || freeUnits.second.empty())
+            return false;
 
-        if (freeUnits.first != HARQ_NONE) {
-            if (freeUnits.second.empty())
-                // there is a process currently selected for user <id>, but all of its codewords have already been used.
-                return false;
-            // retrieving the codeword index
-            cw = freeUnits.second.front();
-            // DEBUG check
-            if (cw > MAX_CODEWORDS)
-                throw cRuntimeError("LteSchedulerEnbDl::checkEligibility(): abnormal codeword id %d", (int)cw);
-            return true;
-        }
+        cw = freeUnits.second.front();
+        if (cw >= MAX_CODEWORDS)
+            throw cRuntimeError("LteSchedulerEnbDl::checkEligibility(): abnormal codeword id %d", (int)cw);
     }
     return true;
 }
