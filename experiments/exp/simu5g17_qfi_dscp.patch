@@ -1,0 +1,35 @@
+diff --git a/src/simu5g/corenetwork/gtp/GtpUser.cc b/src/simu5g/corenetwork/gtp/GtpUser.cc
+index 1cdd44b..cdaa6dc 100644
+--- a/src/simu5g/corenetwork/gtp/GtpUser.cc
++++ b/src/simu5g/corenetwork/gtp/GtpUser.cc
+@@ -15,0 +16 @@
++#include <inet/networklayer/common/DscpTag_m.h>
+@@ -45,0 +47,10 @@ void GtpUser::initialize(int stage)
++    const auto *entries = check_and_cast<const cValueArray *>(par("qfiDscpMap").objectValue());
++    for (int i = 0; i < entries->size(); ++i) {
++        const auto *entry = check_and_cast<const cValueMap *>(entries->get(i).objectValue());
++        auto qfi = entry->get("qfi").intValue();
++        auto dscp = entry->get("dscp").intValue();
++        if (qfi < 0 || qfi > 63 || dscp < 0 || dscp > 63)
++            throw cRuntimeError("qfiDscpMap values must be in [0, 63]");
++        if (!qfiDscpMap_.emplace(qfi, dscp).second)
++            throw cRuntimeError("qfiDscpMap repeats a QFI");
++    }
+@@ -183,0 +195,4 @@ void GtpUser::handleFromTrafficFlowFilter(Packet *datagram)
++        auto mark = qfiDscpMap_.find(num(qfi));
++        if (mark != qfiDscpMap_.end())
++            gtpPacket->addTagIfAbsent<DscpReq>()->setDifferentiatedServicesCodePoint(mark->second);
++
+diff --git a/src/simu5g/corenetwork/gtp/GtpUser.h b/src/simu5g/corenetwork/gtp/GtpUser.h
+index 48635f3..a4b9cd5 100644
+--- a/src/simu5g/corenetwork/gtp/GtpUser.h
++++ b/src/simu5g/corenetwork/gtp/GtpUser.h
+@@ -49,0 +50 @@ class GtpUser : public cSimpleModule
++    std::map<int, int> qfiDscpMap_;
+diff --git a/src/simu5g/corenetwork/gtp/GtpUser.ned b/src/simu5g/corenetwork/gtp/GtpUser.ned
+index bc4758e..081f77b 100644
+--- a/src/simu5g/corenetwork/gtp/GtpUser.ned
++++ b/src/simu5g/corenetwork/gtp/GtpUser.ned
+@@ -33,0 +34,2 @@ simple GtpUser
++        // Optional mapping for the outer IP header of newly encapsulated packets.
++        object qfiDscpMap = default([]); // [{qfi, dscp}, ...]
