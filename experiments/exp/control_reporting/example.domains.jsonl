@@ -1,0 +1,4 @@
+{"version":1,"sim_time_ns":200000000,"domains":{"ran":{"ran_bands":4,"ran_last_allocated_blocks":0},"transport":{"path_id":"direct","direct_queue_packets":0,"detour_queue_packets":0},"core":{"upf_video_rate_bps":1000000}}}
+{"version":1,"sim_time_ns":220000000,"domains":{"ran":{"ran_bands":4,"ran_last_allocated_blocks":2},"transport":{"path_id":"direct","direct_queue_packets":22,"detour_queue_packets":0},"core":{"upf_video_rate_bps":1000000}}}
+{"version":1,"sim_time_ns":240000000,"domains":{"ran":{"ran_bands":4,"ran_last_allocated_blocks":2},"transport":{"path_id":"direct","direct_queue_packets":24,"detour_queue_packets":0},"core":{"upf_video_rate_bps":1000000}}}
+{"version":1,"sim_time_ns":260000000,"domains":{"ran":{"ran_bands":10,"ran_last_allocated_blocks":3},"transport":{"path_id":"detour","direct_queue_packets":32,"detour_queue_packets":0},"core":{"upf_video_rate_bps":3000000}}}
