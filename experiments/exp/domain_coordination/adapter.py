@@ -80,8 +80,11 @@ class LadderPolicy:
         return ran, TransportState(stamp, obs["path_id"], tuple(paths)), core
 
     def __call__(self, obs):
+        return self.choose_from_states(obs, self.states(obs))
+
+    def choose_from_states(self, obs, states):
         now_ns = obs["sim_time_ns"]
-        ran, transport, core = self.states(obs)
+        ran, transport, core = states
         if self.mode == "full":
             decision = solve_full(ran, transport, core, BUDGETS, self.intent, now_ns)
             item = decision.selected
