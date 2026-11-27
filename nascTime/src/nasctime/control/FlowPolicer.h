@@ -23,6 +23,7 @@ class FlowPolicer : public omnetpp::cSimpleModule
     const Counters& getCounters() const { return counters; }
     const char *getFlowId() const { return par("flowId").stringValue(); }
     int getRateBps() const { return rateBps; }
+    double getAvailableTokens() const { return bucket.getNumTokens(); }
     void setRateBps(int newRateBps);
 
   protected:

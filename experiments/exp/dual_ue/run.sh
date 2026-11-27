@@ -50,6 +50,7 @@ cp "$scenario/DualUeRadio.cc" "$build/"
 if [[ "${BUILD_GCC_ONLY:-0}" == 1 ]]; then
     target=()
     if [[ -n "${TARGET_UE:-}" ]]; then target+=(--target-ue "$TARGET_UE"); fi
+    if [[ "${PREFIX_WITNESS:-0}" == 1 ]]; then target+=(--prefix-witness); fi
     python3 -B "$repo/experiments/exp/domain_coordination/augment_bridge.py" "${target[@]}" \
         "$repo/experiments/exp/RouteController.cc" "$build/RouteController.cc"
 else

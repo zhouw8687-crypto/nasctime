@@ -35,6 +35,32 @@ TELEMETRY = """        if (scheduler && policer) {
 """
 
 
+PREFIX_WITNESS = """        if (policer) {
+            auto *mac = check_and_cast<simu5g::LteMacBase *>(scheduler->getParentModule());
+            json macQueues = json::object();
+            for (const auto cid : mac->getActiveMacBufferCids())
+                macQueues[std::to_string(cid.asPackedInt())] = mac->getMacBuffer(cid)->getQueueOccupancy();
+            json egress = json::array();
+            for (auto *port : queues) {
+                json classes = json::array();
+                for (int i = 0; i < port->getSubmodule("queue", 0)->getVectorSize(); ++i) {
+                    auto *queue = check_and_cast<queueing::PacketQueue *>(port->getSubmodule("queue", i));
+                    classes.push_back({queue->getNumPackets(), queue->getTotalLength().get()});
+                }
+                egress.push_back(classes);
+            }
+            json rngDraws = json::array();
+            for (int i = 0; i < getNumRNGs(); ++i)
+                rngDraws.push_back(getRNG(i)->getNumbersDrawn());
+            const auto& counts = policer->getCounters();
+            observation["prefix_witness"] = {{"event_number", getSimulation()->getEventNumber()},
+                {"rng_draws", rngDraws}, {"mac_queue_bytes_by_cid", macQueues}, {"egress_classes", egress},
+                {"upf_tokens_bits", policer->getAvailableTokens()},
+                {"upf_admitted_packets", counts.admittedPackets}, {"upf_dropped_packets", counts.droppedPackets}};
+        }
+"""
+
+
 def insert_after(source, anchor, addition):
     if source.count(anchor) != 1:
         raise ValueError(f"Expected one route bridge anchor: {anchor.strip()}")
@@ -46,6 +72,7 @@ def main():
     parser.add_argument("source", type=Path)
     parser.add_argument("copy", type=Path)
     parser.add_argument("--target-ue", type=int, help="include only this NR UE's virtual MAC queues")
+    parser.add_argument("--prefix-witness", action="store_true", help="record replay audit state")
     args = parser.parse_args()
     telemetry = TELEMETRY
     if args.target_ue is not None:
@@ -62,6 +89,8 @@ def main():
         )
     source = args.source.read_text(encoding="utf-8")
     source = insert_after(source, '#include "inet/queueing/queue/PacketQueue.h"\n', HEADERS)
+    if args.prefix_witness:
+        telemetry += PREFIX_WITNESS
     source = insert_after(source, "        recordResources(observation);\n", telemetry)
     args.copy.write_text(source, encoding="utf-8")
 

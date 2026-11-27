@@ -136,7 +136,7 @@ def extract_queues(meta, vectors):
                        mean_packets=mean, overflow_packets=sum(start <= t < stop for t, _, _ in drops))
 
 
-def udp_frames(data):
+def udp_frames(data, include_ip_bits=False):
     """Read the untagged Ethernet/IPv4 UDP frames recorded by this INET scenario."""
     if not data:  # INET writes a zero-byte file if the interface had no events.
         return
@@ -162,7 +162,9 @@ def udp_frames(data):
         udp = 14 + (frame[14] & 15) * 4
         source, dest = struct.unpack_from("!HH", frame, udp)
         dscp = frame[15] >> 2
-        yield sec + frac / resolution, source, dest, dscp
+        fields = (sec + frac / resolution, source, dest, dscp)
+        ip_bits = int.from_bytes(frame[16:18], "big") * 8
+        yield (*fields, ip_bits) if include_ip_bits else fields
 
 
 def extract_pcap(meta, case, results_hashes):
