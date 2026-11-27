@@ -46,9 +46,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("results", type=Path)
     args = parser.parse_args()
+    modes = ["exact", "round8", "boundary"]
+    if any(args.results.glob("*-boundary_periodic")):
+        modes.insert(2, "boundary_periodic")
     rows = [summarize(args.results / f"{scheduler}-{seed}-{mode}", scheduler, seed, mode)
             for scheduler in ("MAXCI", "PF") for seed in range(5)
-            for mode in ("exact", "round8", "boundary")]
+            for mode in modes]
     writer = csv.DictWriter(sys.stdout, fieldnames=list(rows[0]))
     writer.writeheader()
     writer.writerows(rows)

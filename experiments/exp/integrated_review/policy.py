@@ -1,6 +1,5 @@
 """Transmit GCC input samples through a binary report channel within the TCP adapter."""
 import argparse
-import json
 import socket
 import struct
 from dataclasses import replace
@@ -30,7 +29,7 @@ class ReportingPolicy(LadderPolicy):
         super().__init__("full", log)
         self.encoding = mode
         self.last = {}
-        self.codec_id = {"exact": 11, "round8": 12, "boundary": 13}[mode]
+        self.codec_id = {"exact": 11, "round8": 12, "boundary": 13, "boundary_periodic": 13}[mode]
         self.link = struct.Struct("!?III" if mode == "exact" else "!?BII")
 
     def exchange(self, domain, now, payload):
@@ -64,7 +63,7 @@ class ReportingPolicy(LadderPolicy):
         for path, values in zip(transport.paths, self.link.iter_unpack(data[1:]), strict=True):
             available, code, bits, rate = values
             depth = code
-            if self.encoding == "boundary":
+            if self.encoding in ("boundary", "boundary_periodic"):
                 depth = (0, 5, 24)[code]
             elif self.encoding == "round8":
                 depth = 8 * code
@@ -75,7 +74,7 @@ class ReportingPolicy(LadderPolicy):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("encoding", choices=("exact", "round8", "boundary"))
+    parser.add_argument("encoding", choices=("exact", "round8", "boundary_periodic", "boundary"))
     parser.add_argument("result", type=Path)
     args = parser.parse_args()
     with (args.result / "policy.jsonl").open("x") as log, socket.socket() as listener:

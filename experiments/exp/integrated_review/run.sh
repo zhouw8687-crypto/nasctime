@@ -21,7 +21,7 @@ pid=
 trap 'if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; fi' EXIT
 for discipline in MAXCI PF; do
     for seed in 0 1 2 3 4; do
-        for mode in exact round8 boundary; do
+        for mode in exact round8 boundary_periodic boundary; do
             case_dir="$out/$discipline-$seed-$mode"
             mkdir "$case_dir"
             python3 -B -m integrated_review.policy "$mode" "$case_dir" > "$case_dir/controller.log" 2>&1 &
