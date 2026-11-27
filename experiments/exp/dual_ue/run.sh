@@ -17,6 +17,8 @@ export LD_LIBRARY_PATH="$runtime/../conda-envs/nasctime/lib:$runtime/omnetpp-6.4
 export INET_ROOT="$runtime/inet" SIMU5G_ROOT
 ulimit -c 0
 
+discipline="${DL_DISCIPLINE:-MAXCI}"
+case "$discipline" in MAXCI|PF) ;; *) echo "Expected MAXCI or PF" >&2; exit 2;; esac
 seed_count="${SEED_COUNT:-5}"
 [[ "$seed_count" =~ ^[1-9][0-9]*$ ]]
 
@@ -29,6 +31,7 @@ seed_count="${SEED_COUNT:-5}"
     git -C "$SIMU5G_ROOT" diff HEAD --binary | sha256sum
     printf 'runtime=%s\n' "$runtime"
     printf 'simu5g=%s\n' "$SIMU5G_ROOT"
+    printf 'dl_discipline=%s\n' "$discipline"
     printf 'seed_count=%s\n' "$seed_count"
 } > "$out/environment.txt"
 
@@ -67,6 +70,7 @@ run_case() {
     mkdir "$result"
     "$SIMU5G_ROOT/bin/simu5g" -n "$out/ned" -l "$build/dualue" \
         -f "$scenario/dual_ue.ini" -u Cmdenv -c DualUe -r 0 \
+        "--*.gnb1.cellularNic.mac.schedulingDisciplineDl=\"$discipline\"" \
         "--seed-set=$seed" "--result-dir=$result" "--*.routeController.initialPath=\"$path\"" \
         "--*.gnb1.cellularNic.mac.schedulerDl.initialBandBudget=$bands" \
         "${overrides[@]}" > "$result/run.log" 2>&1 || { tail -40 "$result/run.log" >&2; exit 1; }
