@@ -96,7 +96,7 @@ class CandidateReplay(unittest.TestCase):
                 self.assertIsNone(decision["planned_effective_ns"])
 
     def test_unavailable_route_is_filtered_before_pareto(self):
-        impassable = replace(self.transport, paths=(self.direct, replace(self.detour, available=False)))
+        impassable = replace(self.transport, paths=(self.direct, replace(self.detour, available=False, bottleneck_bps=0)))
         decision = self.solve(transport=impassable)
         self.assertEqual(decision.selected.transport.action, "direct")
         rejected = [item for item in decision.evaluated if item.transport.action == "detour"]

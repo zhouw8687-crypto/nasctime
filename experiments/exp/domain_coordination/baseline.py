@@ -140,12 +140,16 @@ def transport_candidates(state: TransportState, budget: DomainBudget, intent: In
         retention = path.congested_delivery_ppm if path.queued_packets >= threshold else PPM
         video = min(residual, intent.video_target_bps * retention // PPM)
         # Allow one in-flight 1500 B frame on the modeled bottleneck.
-        delay = path.base_delay_ns + serialization_ns(path.control_queue_bits + 12_000,
-                                                       path.bottleneck_bps)
+        delay = path.base_delay_ns
+        violations = [] if path.available else ["path_unavailable"]
+        if path.bottleneck_bps > 0:
+            delay += serialization_ns(path.control_queue_bits + 12_000, path.bottleneck_bps)
+        else:
+            violations.append("no_link_capacity")
         result.append(candidate(
             "transport", path.path_id, state.stamp, now_ns, video,
             path.bottleneck_bps, delay, path.branch_links, "branch_links", budget, intent,
-            ("path_unavailable",) if not path.available else (), retention,
+            violations, retention,
         ))
     return tuple(result)
 

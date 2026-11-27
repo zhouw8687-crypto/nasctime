@@ -45,10 +45,24 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("copy", type=Path)
+    parser.add_argument("--target-ue", type=int, help="include only this NR UE's virtual MAC queues")
     args = parser.parse_args()
+    telemetry = TELEMETRY
+    if args.target_ue is not None:
+        if args.target_ue < 0:
+            parser.error("target UE index must be nonnegative")
+        anchor = "            std::int64_t backlogBytes = 0;"
+        ue_lookup = (
+            "            auto *ueMac = check_and_cast<simu5g::LteMacBase *>(\n"
+            f'                    getSimulation()->getSystemModule()->getModuleByPath("ue[{args.target_ue}].cellularNic.nrMac"));\n'
+        )
+        telemetry = telemetry.replace(anchor, ue_lookup + anchor).replace(
+            "                backlogBytes +=",
+            "                if (cid.getNodeId() == ueMac->getMacNodeId())\n                    backlogBytes +=",
+        )
     source = args.source.read_text(encoding="utf-8")
     source = insert_after(source, '#include "inet/queueing/queue/PacketQueue.h"\n', HEADERS)
-    source = insert_after(source, "        recordResources(observation);\n", TELEMETRY)
+    source = insert_after(source, "        recordResources(observation);\n", telemetry)
     args.copy.write_text(source, encoding="utf-8")
 
 

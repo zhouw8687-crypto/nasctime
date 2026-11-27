@@ -46,7 +46,15 @@ cp "$repo/nascTime/src/nasctime/qos/DscpToPcpMarker.ned" "$marker/"
 cp "$repo/nascTime/src/nasctime/control/"{ControlledDlScheduler,FlowPolicer}.ned "$control/"
 cp "$scenario/DualUeRadio.ned" "$control/"
 cp "$repo/nascTime/src/nasctime/control/"{ControlledDlScheduler,FlowPolicer}.cc "$build/"
-cp "$repo/experiments/exp/RouteController.cc" "$scenario/DualUeRadio.cc" "$build/"
+cp "$scenario/DualUeRadio.cc" "$build/"
+if [[ "${BUILD_GCC_ONLY:-0}" == 1 ]]; then
+    target=()
+    if [[ -n "${TARGET_UE:-}" ]]; then target+=(--target-ue "$TARGET_UE"); fi
+    python3 -B "$repo/experiments/exp/domain_coordination/augment_bridge.py" "${target[@]}" \
+        "$repo/experiments/exp/RouteController.cc" "$build/RouteController.cc"
+else
+    cp "$repo/experiments/exp/RouteController.cc" "$build/"
+fi
 (
     cd "$build"
     opp_makemake --make-so -f -o dualue -I"$INET_ROOT/src" -I"$repo/nascTime/src" \
@@ -55,6 +63,7 @@ cp "$repo/experiments/exp/RouteController.cc" "$scenario/DualUeRadio.cc" "$build
     make -j4
 ) > "$out/build.log" 2>&1 || { tail -40 "$out/build.log" >&2; exit 1; }
 
+if [[ "${BUILD_GCC_ONLY:-0}" == 1 ]]; then exit 0; fi
 cd "$repo"
 printf 'case\tseed\tradio\twired\tpath\tbands\n' > "$out/cases.tsv"
 run_case() {
