@@ -145,6 +145,8 @@ class RouteController : public cSimpleModule
         if (scheduler && policer) {
             message["ran_bands"] = scheduler->getBandBudget();
             message["upf_video_rate_bps"] = policer->getRateBps();
+            message["upf_video_capacity_bps"] = policer->getCapacityBps();
+            message["upf_video_enforced_bps"] = policer->getEnforcedRateBps();
             message["ran_last_allocated_blocks"] = scheduler->getLastSlotAllocatedBlocks();
         }
     }

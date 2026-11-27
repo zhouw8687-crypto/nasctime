@@ -30,6 +30,11 @@ TELEMETRY = """        if (scheduler && policer) {
 
             const auto& counts = policer->getCounters();
             observation["core"] = {{"offered_video_packets", counts.admittedPackets + counts.droppedPackets},
+                    {"offered_video_bytes", counts.admittedBytes + counts.droppedBytes},
+                    {"admitted_video_packets", counts.admittedPackets},
+                    {"dropped_video_packets", counts.droppedPackets},
+                    {"admitted_video_bytes", counts.admittedBytes},
+                    {"dropped_video_bytes", counts.droppedBytes},
                     {"burst_bytes", policer->par("burstSize").intValue()}};
         }
 """
