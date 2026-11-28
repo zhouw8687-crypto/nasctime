@@ -35,7 +35,8 @@ class ReportingPolicy(LadderPolicy):
         ran = replace(ran, stamp=stamp(ran_rx), max_bands=ran_rx.report.max_bands,
                       mac_backlog_bytes=ran_rx.report.mac_backlog_bytes)
         core = replace(core, stamp=stamp(core_rx), offered_video_bps=core_rx.report.offered_video_bps,
-                       burst_bytes=core_rx.report.burst_bytes)
+                       burst_bytes=core_rx.report.burst_bytes,
+                       max_ip_rate_bps=core_rx.report.max_ip_rate_bps)
         paths = tuple(
             replace(path, available=report.available, queued_packets=report.queued_packets,
                     control_queue_bits=report.control_queue_bits, bottleneck_bps=report.bottleneck_bps)
@@ -55,7 +56,7 @@ class ReportingPolicy(LadderPolicy):
                 LinkReport(path.available, path.queued_packets,
                            path.control_queue_bits, path.bottleneck_bps) for path in transport.paths
             )),
-            "core": CoreReport(core.offered_video_bps, core.burst_bytes),
+            "core": CoreReport(core.offered_video_bps, core.burst_bytes, core.max_ip_rate_bps),
         }
         for event in self.channel.tick(now_ns, reports):
             self.write(event)

@@ -38,6 +38,7 @@ class TransportReport:
 class CoreReport:
     offered_video_bps: int
     burst_bytes: int
+    max_ip_rate_bps: int = 3_000_000
 
 
 Report = RanReport | TransportReport | CoreReport
@@ -92,6 +93,8 @@ class LadderPayload:
         if domain == "ran":
             return RAN.pack(report.max_bands, report.mac_backlog_bytes)
         if domain == "core":
+            if report.max_ip_rate_bps != 3_000_000:
+                raise ValueError("Legacy uplink requires a preconfigured 3 Mbit/s UPF cap")
             return CORE.pack(report.offered_video_bps, report.burst_bytes)
         link = self.link
         return bytes([BRANCHES.index(report.current_path)]) + b"".join(
