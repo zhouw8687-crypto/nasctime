@@ -73,12 +73,18 @@ def semantic_view(domains):
     }
 
 
-def metric_values(outcome):
-    return {"video_bits": outcome["video_delivered_payload_bits"],
+def window_steps(row):
+    start, stop = row["send_window_ns"]
+    return (stop - start) / 100_000_000
+
+
+def metric_values(outcome, row):
+    raw = {"video_bits": outcome["video_delivered_payload_bits"],
             "video_on_time": outcome["video_on_time_20ms_packets"],
             "competitor_bits": outcome["competitor_delivered_payload_bits"],
             "ran_blocks": outcome["ran_allocated_blocks"],
             "branch_bit_hops": outcome["transport_branch_bit_hops"]}
+    return {key: value / window_steps(row) for key, value in raw.items()}
 
 
 def utility(values, weights):
@@ -93,14 +99,20 @@ def publish(sources, out, version, source_revision):
     write_json(out / "split-v1.json", split)
     counts = Counter()
     scenarios = Counter()
+    group_splits = {}
     ids = set()
     with (out / "samples.jsonl").open("x", encoding="utf-8") as file:
         for source in sources:
             for row in read_jsonl(source):
                 seed = row["seed"]
-                split_name = SEED_SPLIT[seed]
-                row["split_group"] = f"pf-dual-ue-seed-{seed}"
-                row["split"] = split_name
+                if row.get("source_family") == "scene-manifest":
+                    split_name = row["split"]
+                else:
+                    split_name = SEED_SPLIT[seed]
+                    row["split_group"] = f"pf-dual-ue-seed-{seed}"
+                    row["split"] = split_name
+                if group_splits.setdefault(row["split_group"], split_name) != split_name:
+                    raise ValueError(f'Split leakage: {row["split_group"]}')
                 # Keep the original scenario-specific decision id for provenance.
                 row["record_id"] = f'{row["scenario_id"]}/{row["decision_id"]}'
                 if row["record_id"] in ids:
@@ -109,13 +121,17 @@ def publish(sources, out, version, source_revision):
                 if row["label_status"] != "complete":
                     raise ValueError(f'Incomplete paired group: {row["record_id"]}')
                 row["data_version"] = version
+                row.setdefault("local_control_window_ns", row["send_window_ns"])
+                row.setdefault("gcc_reference_kind", "rolling_gcc_and_same_action_held")
                 row["semantic"] = semantic_view(row["domains"])
-                row["flow_scope"] = FLOWS
+                row["semantic"]["core"]["capacity_bps"] = row.get("core_capacity_bps")
+                control_bytes = (row.get("scenario_context") or {}).get("control_payload_bytes", 200)
+                row["flow_scope"] = {**FLOWS, "control": {**FLOWS["control"], "payload_bytes": control_bytes}}
                 row["unit_profile"] = "pf-v1"
                 row["preference_ids"] = list(PREFERENCES)
                 for candidate in row["candidates"]:
                     replicate, = candidate["outcomes"]
-                    metrics = metric_values(replicate)
+                    metrics = metric_values(replicate, row)
                     candidate["utility_if_feasible"] = {
                         name: utility(metrics, weights) if replicate["feasible"] else None
                         for name, weights in PREFERENCES.items()
@@ -125,18 +141,22 @@ def publish(sources, out, version, source_revision):
                 counts[f'{split_name}_groups'] += 1
                 scenarios[row["scenario_id"]] += 1
                 file.write(json.dumps(row, allow_nan=False, separators=(",", ":")) + "\n")
+    write_json(out / "split-v2.json", {
+        "version": "2", "assignments": group_splits,
+        "policy": "retain v1 for original teacher trajectories; reserve scene manifest groups by supplied split",
+    })
     write_json(out / "contracts.json", {
         "unit_profile": "pf-v1", "units": UNITS, "flows": FLOWS,
-        "preferences": PREFERENCES, "scales": SCALES,
+        "preferences": PREFERENCES, "scales": SCALES, "objective_basis": "per 100 ms equivalent",
         "feasibility": "apply/readback checked, local 100 ms control SLA, original burst SLA and resource constraints",
         "causal_inputs": ["scenario_context", "semantic", "intent", "domain_budgets", "active_action"],
         "supervision_only": ["candidates[].outcomes", "rolling_gcc_reference", "pareto_action_ids"],
     })
     write_json(out / "manifest.json", {
-        "version": version, "source_revision": source_revision, "split_version": "1",
+        "version": version, "source_revision": source_revision, "split_version": "2",
         "scenarios": dict(scenarios), "counts": dict(counts),
         "source_sha256": {str(source): sha(source) for source in sources},
-        "files": {name: sha(out / name) for name in ("samples.jsonl", "split-v1.json", "contracts.json")},
+        "files": {name: sha(out / name) for name in ("samples.jsonl", "split-v1.json", "split-v2.json", "contracts.json")},
         "teacher": "paired closed-loop Simu5G branches", "online_gcc": "causal analytical baseline",
     })
 
