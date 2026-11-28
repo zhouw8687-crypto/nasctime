@@ -22,6 +22,9 @@ read -r -a modes <<< "${REPORT_MODES:-exact round8 boundary_periodic boundary}"
 delay=${REPORT_DELAY_MS:-0}
 ttl=${REPORT_TTL_MS:-40}
 refresh=${REPORT_REFRESH_MS:-40}
+controller_python=${REPORT_PYTHON:-python3}
+startup_attempts=${REPORT_STARTUP_ATTEMPTS:-100}
+[[ "$startup_attempts" =~ ^[1-9][0-9]*$ ]]
 [[ "$delay" =~ ^[0-9]+$ && "$ttl" =~ ^[1-9][0-9]*$ && "$refresh" =~ ^[1-9][0-9]*$ ]]
 for discipline in "${disciplines[@]}"; do
     case "$discipline" in MAXCI|PF) ;; *) echo "Unknown discipline: $discipline" >&2; exit 2;; esac
@@ -48,11 +51,11 @@ for discipline in "${disciplines[@]}"; do
         for mode in "${modes[@]}"; do
             case_dir="$out/$discipline-$seed-$mode"
             mkdir "$case_dir"
-            python3 -B -m integrated_review.policy "$mode" "$case_dir" \
+            "$controller_python" -B -m integrated_review.policy "$mode" "$case_dir" \
                 --delay-ms "$delay" --ttl-ms "$ttl" --refresh-ms "$refresh" \
                 "${codec_args[@]}" > "$case_dir/controller.log" 2>&1 &
             pid=$!
-            for ((i=0; i<100; ++i)); do
+            for ((i=0; i<startup_attempts; ++i)); do
                 [[ -s "$case_dir/port" ]] && break
                 kill -0 "$pid" || break
                 sleep .05
