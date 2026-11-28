@@ -67,7 +67,7 @@ class Transaction:
 
 
 class Measurements:
-    def __init__(self, path):
+    def __init__(self, path, validate_nominal_counts=True):
         self.path = path
         raw = read_jsonl(path / "routes.jsonl")
         if len(raw) != 56 * 3 or any(
@@ -91,8 +91,10 @@ class Measurements:
             source: (sent, received, duplicates)
             for source, _, sent, received, duplicates in collect_flows(self.vectors, NETWORK, pairs)
         }
-        for source, _, count in FLOWS.values():
-            if len(self.flows[source][0]) != count:
+        for name, (source, _, count) in FLOWS.items():
+            if source not in self.flows:
+                self.flows[source] = ([], {}, {})
+            if (name in ("control", "video") or validate_nominal_counts) and len(self.flows[source][0]) != count:
                 raise ValueError(f"{path}: wrong offered packet count for {source}")
         # Event numbers may differ after branching even when actual traffic is identical.
         self.exogenous_traffic_sha256 = digest({

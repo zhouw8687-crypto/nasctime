@@ -117,7 +117,7 @@ def traffic_id(seed, trace):
     return digest({"seed_set": seed, "app_sends_sha256": trace})
 
 
-def sample_at(out, ref, seed, fork_ms):
+def sample_at(out, ref, seed, fork_ms, manifest):
     now, stop = fork_ms * MS, (fork_ms + HOLD_MS) * MS
     prefix = ref.prefix_sha256(now)
     prediction = ref.trace[now].prediction
@@ -128,8 +128,9 @@ def sample_at(out, ref, seed, fork_ms):
     chosen = action_id(prediction["action"] or active)
     candidates = []
     outcomes = {}
+    nominal = manifest["scenario_id"] == "pf-dual-ue-both"
     for name, action in ACTION_GRID.items():
-        episode = Measurements(out / Run(seed, fork_ms, name).name)
+        episode = Measurements(out / Run(seed, fork_ms, name).name, validate_nominal_counts=nominal)
         outcome = audit_and_measure(episode, ref, prefix, seed, now, stop, action)
         outcomes[name] = outcome
         candidates.append({"action_id": name, "action": action,
@@ -140,7 +141,8 @@ def sample_at(out, ref, seed, fork_ms):
         row["service_effect_vs_gcc_held"] = compare(outcomes[name], outcomes[chosen], BENEFITS)
     split = {0: "train", 1: "train", 2: "train", 3: "validation", 4: "test"}.get(seed, "unassigned")
     return {
-        "version": 1, "scenario_id": "pf-dual-ue-both", "decision_id": f"pf-{seed}-{fork_ms}",
+        "version": 1, "scenario_id": manifest["scenario_id"], "scenario_context": manifest.get("scenario_context"),
+        "decision_id": f"pf-{seed}-{fork_ms}",
         "split_group": f"pf-dual-ue-both-seed-{seed}", "split": split, "seed": seed,
         "phase": FORKS[fork_ms], "sim_time_ns": now, "apply_at_ns": now,
         "send_window_ns": [now, stop], "drain_until_ns": DRAIN_MS * MS,
@@ -166,11 +168,12 @@ def generate(out):
             or manifest["actions"] != ACTION_GRID):
         raise ValueError("matrix settings do not match the label contract")
     for seed in manifest["seeds"]:
-        reference = Measurements(out / Run(seed).name)
+        reference = Measurements(out / Run(seed).name,
+                                 validate_nominal_counts=manifest["scenario_id"] == "pf-dual-ue-both")
         for txn in reference.trace.values():
             txn.validate(txn.prediction["action"])
         for point in manifest["forks"]:
-            yield sample_at(out, reference, seed, point)
+            yield sample_at(out, reference, seed, point, manifest)
 
 
 def summarize(rows):

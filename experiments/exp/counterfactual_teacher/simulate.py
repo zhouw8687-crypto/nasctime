@@ -14,7 +14,7 @@ from domain_coordination.adapter import ACTIONS as ACTUATORS, LadderPolicy
 from domain_coordination.baseline import BANDS, MS, RATES_BPS
 from ladder_controller import serve
 
-FORKS = {280: "stable_before", 420: "approaching_switch", 440: "switch_to_detour",
+FORKS = {280: "stable_before", 400: "burst_onset", 420: "approaching_switch", 440: "switch_to_detour",
          640: "stable_burst", 1020: "switch_to_direct", 1140: "stable_after"}
 HOLD_MS = 100
 DRAIN_MS = 4000
@@ -56,7 +56,7 @@ class ForkPolicy(LadderPolicy):
         return gcc_action
 
 
-def run_simulator(sim, out, run):
+def run_simulator(sim, out, run, ini, config):
     case = out / run.name
     case.mkdir()
     with (case / "policy.jsonl").open("x", encoding="utf-8") as policy_log, \
@@ -77,7 +77,7 @@ def run_simulator(sim, out, run):
         task.start()
         cmd = [
             str(sim / "bin/simu5g"), "-n", str(out / "ned"), "-l", str(out / "build/dualue"),
-            "-f", "counterfactual_teacher/scenario.ini", "-u", "Cmdenv", "-c", "CounterfactualPf",
+            "-f", str(ini), "-u", "Cmdenv", "-c", config,
             "-r", "0", f"--seed-set={run.seed}", f"--result-dir={case}",
             f"--*.routeController.port={port}",
         ]
@@ -94,20 +94,30 @@ def main():
     parser.add_argument("sim", type=Path)
     parser.add_argument("out", type=Path)
     parser.add_argument("--seeds", type=int, nargs="+", default=list(range(5)))
-    parser.add_argument("--forks", type=int, nargs="+", choices=sorted(FORKS), default=list(FORKS))
+    parser.add_argument("--forks", type=int, nargs="+", choices=sorted(FORKS), default=[point for point in FORKS if point != 400])
     parser.add_argument("--jobs", type=int, default=6)
+    parser.add_argument("--ini", type=Path, default=Path("counterfactual_teacher/scenario.ini"))
+    parser.add_argument("--config", default="CounterfactualPf")
+    parser.add_argument("--scenario-id", default="pf-dual-ue-both")
+    parser.add_argument("--context", type=Path, help="JSON causal scenario configuration")
     args = parser.parse_args()
+    if (args.config != "CounterfactualPf" or args.ini != Path("counterfactual_teacher/scenario.ini")) and (
+        args.scenario_id == "pf-dual-ue-both" or args.context is None
+    ):
+        parser.error("custom configurations need a scenario ID and context JSON")
+    context = json.loads(args.context.read_text()) if args.context else None
     if args.jobs < 1 or min(args.seeds) < 0 or len(set(args.seeds)) != len(args.seeds) or len(set(args.forks)) != len(args.forks):
         parser.error("specify distinct nonnegative seeds and fork points, and positive jobs")
     runs = [Run(seed) for seed in args.seeds]
     runs.extend(Run(seed, point, action) for seed, point, action in product(args.seeds, args.forks, ACTION_GRID))
-    manifest = {"scenario_id": "pf-dual-ue-both", "seeds": args.seeds, "forks": args.forks,
+    manifest = {"scenario_id": args.scenario_id, "config": args.config, "scenario_context": context,
+                "seeds": args.seeds, "forks": args.forks,
                 "hold_ms": HOLD_MS, "drain_ms": DRAIN_MS, "actions": ACTION_GRID,
                 "runs": [asdict(run) for run in runs]}
     with (args.out / "matrix.json").open("x", encoding="utf-8") as file:
         json.dump(manifest, file, indent=2)
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        for index, name in enumerate(pool.map(lambda run: run_simulator(args.sim, args.out, run), runs), 1):
+        for index, name in enumerate(pool.map(lambda run: run_simulator(args.sim, args.out, run, args.ini, args.config), runs), 1):
             if index <= len(args.seeds) or index % 20 == 0 or index == len(runs):
                 print(f"Finished {index}/{len(runs)} ({name})", flush=True)
 
