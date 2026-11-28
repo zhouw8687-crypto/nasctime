@@ -1,0 +1,1133 @@
+{
+  "schema_version": "semantic-scenario-manifest/1",
+  "release": "v0.1",
+  "status": "ready_for_discovery_unverified",
+  "config_path": "experiments/exp/semantic_scenarios/scenarios.ini",
+  "baseline_commit": "052b49c977f510e3f56f45e4811dd9bc2ee7bfc6",
+  "scheduler": "PF",
+  "target_ue": "ue[0]",
+  "drain_ms": 4000,
+  "initial_action": {
+    "path_id": "direct",
+    "ran_bands": 4,
+    "upf_video_rate_bps": 3000000
+  },
+  "prefix_policy": "no_control_change_before_source_time",
+  "candidate_axes": {
+    "path_id": [
+      "direct",
+      "detour"
+    ],
+    "ran_bands": [
+      4,
+      10
+    ],
+    "upf_video_rate_bps": [
+      1000000,
+      3000000
+    ]
+  },
+  "control_sla": {
+    "ue": "ue[0]",
+    "flow": "control",
+    "udp_dest_port": 6200,
+    "deadline_ms": 20,
+    "minimum_on_time_pct": 99,
+    "denominator": "source_packets_in_evaluation_window",
+    "failure": "a real control packet is late or missing, and the fraction on time falls below 99%"
+  },
+  "flows": [
+    {
+      "ue": "ue[0]",
+      "flow": "control",
+      "udp_dest_port": 6200
+    },
+    {
+      "ue": "ue[0]",
+      "flow": "video",
+      "udp_dest_port": 6204
+    },
+    {
+      "ue": "ue[1]",
+      "flow": "radio_competitor",
+      "udp_dest_port": 6400
+    },
+    {
+      "ue": null,
+      "flow": "wired_background",
+      "udp_dest_port": 6300
+    }
+  ],
+  "units": {
+    "source_time_ms": "simulation_ms",
+    "valid_until_ms": "simulation_ms",
+    "evaluation_window_ms": "simulation_ms_half_open",
+    "video_on_time_20ms_payload_bits": "application_bits",
+    "n3_ip_bit_hops": "outer_ipv4_bit_hops",
+    "cell_rb_slots": "allocated_logical_blocks_summed_over_slots",
+    "configured_rate": "bit/s",
+    "capacity": "bit/s"
+  },
+  "preferences": {
+    "deadline_video": {
+      "terms": [
+        {
+          "metric": "video_on_time_20ms_payload_bits",
+          "direction": "max",
+          "scale": 2000000,
+          "weight": 1
+        },
+        {
+          "metric": "n3_ip_bit_hops",
+          "direction": "min",
+          "scale": 4000000,
+          "weight": 0.05
+        },
+        {
+          "metric": "cell_rb_slots",
+          "direction": "min",
+          "scale": 10000,
+          "weight": 0.03
+        }
+      ]
+    },
+    "resource_economy": {
+      "terms": [
+        {
+          "metric": "video_on_time_20ms_payload_bits",
+          "direction": "max",
+          "scale": 2000000,
+          "weight": 0.15
+        },
+        {
+          "metric": "n3_ip_bit_hops",
+          "direction": "min",
+          "scale": 4000000,
+          "weight": 1
+        },
+        {
+          "metric": "cell_rb_slots",
+          "direction": "min",
+          "scale": 10000,
+          "weight": 0.2
+        }
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "pf-stable",
+      "scenario_family": "stable",
+      "split": "train",
+      "split_group": "pf-scenarios-v1/pf-stable/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {},
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-stable",
+      "scenario_family": "stable",
+      "split": "train",
+      "split_group": "pf-scenarios-v1/pf-stable/seed-1",
+      "seed": 1,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {},
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-video",
+      "scenario_family": "video-wired",
+      "split": "train",
+      "split_group": "pf-scenarios-v1/pf-wire-video/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "500us",
+        "*.NE1.app[0].dscp": "34"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-video",
+      "scenario_family": "video-wired",
+      "split": "train",
+      "split_group": "pf-scenarios-v1/pf-wire-video/seed-1",
+      "seed": 1,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "500us",
+        "*.NE1.app[0].dscp": "34"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-core-video",
+      "scenario_family": "video-core",
+      "split": "train",
+      "split_group": "pf-scenarios-v1/pf-core-video/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 400, bps: 800000}, {atMs: 900, bps: 3000000}]"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-core-video",
+      "scenario_family": "video-core",
+      "split": "train",
+      "split_group": "pf-scenarios-v1/pf-core-video/seed-1",
+      "seed": 1,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 400, bps: 800000}, {atMs: 900, bps: 3000000}]"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-800",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-800/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "800us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-810",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-810/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "810us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-820",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-820/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "820us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-830",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-830/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "830us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-840",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-840/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "840us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-850",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-850/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "850us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-860",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-860/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "860us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-870",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-870/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "870us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-880",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-880/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "880us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-wire-prio-900",
+      "scenario_family": "control-wired-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-wire-prio-900/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "400ms",
+        "*.NE1.app[0].stopTime": "900ms",
+        "*.NE1.app[0].sendInterval": "900us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-radio-1-200",
+      "scenario_family": "control-radio-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-radio-1-200/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "400ms",
+        "*.gnb1.app[0].stopTime": "900ms",
+        "*.gnb1.app[0].sendInterval": "200us",
+        "*.server.app[0].sendInterval": "1ms",
+        "*.server.app[0].messageLength": "200B"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-radio-1.5-400",
+      "scenario_family": "control-radio-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-radio-1.5-400/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "400ms",
+        "*.gnb1.app[0].stopTime": "900ms",
+        "*.gnb1.app[0].sendInterval": "200us",
+        "*.server.app[0].sendInterval": "1.5ms",
+        "*.server.app[0].messageLength": "400B"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-radio-2-600",
+      "scenario_family": "control-radio-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-radio-2-600/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "400ms",
+        "*.gnb1.app[0].stopTime": "900ms",
+        "*.gnb1.app[0].sendInterval": "200us",
+        "*.server.app[0].sendInterval": "2ms",
+        "*.server.app[0].messageLength": "600B"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-radio-1-400",
+      "scenario_family": "control-radio-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-radio-1-400/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "400ms",
+        "*.gnb1.app[0].stopTime": "900ms",
+        "*.gnb1.app[0].sendInterval": "200us",
+        "*.server.app[0].sendInterval": "1ms",
+        "*.server.app[0].messageLength": "400B"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-radio-1-600",
+      "scenario_family": "control-radio-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-radio-1-600/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "400ms",
+        "*.gnb1.app[0].stopTime": "900ms",
+        "*.gnb1.app[0].sendInterval": "200us",
+        "*.server.app[0].sendInterval": "1ms",
+        "*.server.app[0].messageLength": "600B"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-radio-1-800",
+      "scenario_family": "control-radio-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-radio-1-800/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "400ms",
+        "*.gnb1.app[0].stopTime": "900ms",
+        "*.gnb1.app[0].sendInterval": "200us",
+        "*.server.app[0].sendInterval": "1ms",
+        "*.server.app[0].messageLength": "800B"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-radio-2-1000",
+      "scenario_family": "control-radio-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-radio-2-1000/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "400ms",
+        "*.gnb1.app[0].stopTime": "900ms",
+        "*.gnb1.app[0].sendInterval": "200us",
+        "*.server.app[0].sendInterval": "2ms",
+        "*.server.app[0].messageLength": "1000B"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-radio-2.5-800",
+      "scenario_family": "control-radio-boundary",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-radio-2.5-800/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "400ms",
+        "*.gnb1.app[0].stopTime": "900ms",
+        "*.gnb1.app[0].sendInterval": "200us",
+        "*.server.app[0].sendInterval": "2.5ms",
+        "*.server.app[0].messageLength": "800B"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-core-match-370000",
+      "scenario_family": "video-core-match",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-core-match-370000/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 400, bps: 370000}, {atMs: 900, bps: 3000000}]"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-core-match-380000",
+      "scenario_family": "video-core-match",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-core-match-380000/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 400, bps: 380000}, {atMs: 900, bps: 3000000}]"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-core-match-400000",
+      "scenario_family": "video-core-match",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-core-match-400000/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 400, bps: 400000}, {atMs: 900, bps: 3000000}]"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-core-match-410000",
+      "scenario_family": "video-core-match",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-core-match-410000/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 400, bps: 410000}, {atMs: 900, bps: 3000000}]"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-core-match-420000",
+      "scenario_family": "video-core-match",
+      "split": "discovery",
+      "split_group": "pf-scenarios-v1/pf-core-match-420000/seed-0",
+      "seed": 0,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 400, bps: 420000}, {atMs: 900, bps: 3000000}]"
+      },
+      "source_time_ms": 400,
+      "valid_until_ms": 440,
+      "evaluation_window_ms": [
+        400,
+        900
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-pref-validation",
+      "scenario_family": "preference",
+      "split": "validation",
+      "split_group": "pf-scenarios-v1/pf-pref-validation/seed-5",
+      "seed": 5,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "440ms",
+        "*.NE1.app[0].stopTime": "940ms",
+        "*.NE1.app[0].sendInterval": "555us",
+        "*.NE1.app[0].dscp": "34"
+      },
+      "source_time_ms": 440,
+      "valid_until_ms": 480,
+      "evaluation_window_ms": [
+        440,
+        940
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-pref-validation",
+      "scenario_family": "preference",
+      "split": "validation",
+      "split_group": "pf-scenarios-v1/pf-pref-validation/seed-6",
+      "seed": 6,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "440ms",
+        "*.NE1.app[0].stopTime": "940ms",
+        "*.NE1.app[0].sendInterval": "555us",
+        "*.NE1.app[0].dscp": "34"
+      },
+      "source_time_ms": 440,
+      "valid_until_ms": 480,
+      "evaluation_window_ms": [
+        440,
+        940
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-both-validation",
+      "scenario_family": "mixed",
+      "split": "validation",
+      "split_group": "pf-scenarios-v1/pf-both-validation/seed-5",
+      "seed": 5,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "440ms",
+        "*.NE1.app[0].stopTime": "940ms",
+        "*.NE1.app[0].sendInterval": "850us",
+        "*.NE1.app[0].dscp": "46",
+        "*.gnb1.app[0].startTime": "440ms",
+        "*.gnb1.app[0].stopTime": "940ms",
+        "*.gnb1.app[0].sendInterval": "300us",
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 460, bps: 720000}, {atMs: 960, bps: 3000000}]"
+      },
+      "source_time_ms": 440,
+      "valid_until_ms": 480,
+      "evaluation_window_ms": [
+        440,
+        940
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-both-validation",
+      "scenario_family": "mixed",
+      "split": "validation",
+      "split_group": "pf-scenarios-v1/pf-both-validation/seed-6",
+      "seed": 6,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "440ms",
+        "*.NE1.app[0].stopTime": "940ms",
+        "*.NE1.app[0].sendInterval": "850us",
+        "*.NE1.app[0].dscp": "46",
+        "*.gnb1.app[0].startTime": "440ms",
+        "*.gnb1.app[0].stopTime": "940ms",
+        "*.gnb1.app[0].sendInterval": "300us",
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 460, bps: 720000}, {atMs: 960, bps: 3000000}]"
+      },
+      "source_time_ms": 440,
+      "valid_until_ms": 480,
+      "evaluation_window_ms": [
+        440,
+        940
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-held-wire-shift",
+      "scenario_family": "control-wired-boundary",
+      "split": "test",
+      "split_group": "pf-scenarios-v1/pf-held-wire-shift/seed-17",
+      "seed": 17,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "520ms",
+        "*.NE1.app[0].stopTime": "1020ms",
+        "*.NE1.app[0].sendInterval": "837us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 520,
+      "valid_until_ms": 560,
+      "evaluation_window_ms": [
+        520,
+        1020
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-held-wire-shift",
+      "scenario_family": "control-wired-boundary",
+      "split": "test",
+      "split_group": "pf-scenarios-v1/pf-held-wire-shift/seed-19",
+      "seed": 19,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "520ms",
+        "*.NE1.app[0].stopTime": "1020ms",
+        "*.NE1.app[0].sendInterval": "837us",
+        "*.NE1.app[0].dscp": "46"
+      },
+      "source_time_ms": 520,
+      "valid_until_ms": 560,
+      "evaluation_window_ms": [
+        520,
+        1020
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-held-radio-shift",
+      "scenario_family": "control-radio-boundary",
+      "split": "test",
+      "split_group": "pf-scenarios-v1/pf-held-radio-shift/seed-17",
+      "seed": 17,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "520ms",
+        "*.gnb1.app[0].stopTime": "1020ms",
+        "*.gnb1.app[0].sendInterval": "230us",
+        "*.server.app[0].sendInterval": "1.6ms",
+        "*.server.app[0].messageLength": "680B"
+      },
+      "source_time_ms": 520,
+      "valid_until_ms": 560,
+      "evaluation_window_ms": [
+        520,
+        1020
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-held-radio-shift",
+      "scenario_family": "control-radio-boundary",
+      "split": "test",
+      "split_group": "pf-scenarios-v1/pf-held-radio-shift/seed-19",
+      "seed": 19,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.gnb1.app[0].startTime": "520ms",
+        "*.gnb1.app[0].stopTime": "1020ms",
+        "*.gnb1.app[0].sendInterval": "230us",
+        "*.server.app[0].sendInterval": "1.6ms",
+        "*.server.app[0].messageLength": "680B"
+      },
+      "source_time_ms": 520,
+      "valid_until_ms": 560,
+      "evaluation_window_ms": [
+        520,
+        1020
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-held-core-shift",
+      "scenario_family": "video-core",
+      "split": "test",
+      "split_group": "pf-scenarios-v1/pf-held-core-shift/seed-17",
+      "seed": 17,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 500, bps: 465000}, {atMs: 1000, bps: 3000000}]"
+      },
+      "source_time_ms": 500,
+      "valid_until_ms": 540,
+      "evaluation_window_ms": [
+        500,
+        1000
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-held-core-shift",
+      "scenario_family": "video-core",
+      "split": "test",
+      "split_group": "pf-scenarios-v1/pf-held-core-shift/seed-19",
+      "seed": 19,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 500, bps: 465000}, {atMs: 1000, bps: 3000000}]"
+      },
+      "source_time_ms": 500,
+      "valid_until_ms": 540,
+      "evaluation_window_ms": [
+        500,
+        1000
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-held-mixed-staggered",
+      "scenario_family": "mixed-shifted",
+      "split": "test",
+      "split_group": "pf-scenarios-v1/pf-held-mixed-staggered/seed-17",
+      "seed": 17,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "520ms",
+        "*.NE1.app[0].stopTime": "1020ms",
+        "*.NE1.app[0].sendInterval": "824us",
+        "*.NE1.app[0].dscp": "46",
+        "*.gnb1.app[0].startTime": "500ms",
+        "*.gnb1.app[0].stopTime": "1000ms",
+        "*.gnb1.app[0].sendInterval": "260us",
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 560, bps: 620000}, {atMs: 1060, bps: 3000000}]"
+      },
+      "source_time_ms": 520,
+      "valid_until_ms": 560,
+      "evaluation_window_ms": [
+        520,
+        1020
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    },
+    {
+      "scenario_id": "pf-held-mixed-staggered",
+      "scenario_family": "mixed-shifted",
+      "split": "test",
+      "split_group": "pf-scenarios-v1/pf-held-mixed-staggered/seed-19",
+      "seed": 19,
+      "config": "SemanticScenariosPF",
+      "ini_overrides": {
+        "*.NE1.app[0].startTime": "520ms",
+        "*.NE1.app[0].stopTime": "1020ms",
+        "*.NE1.app[0].sendInterval": "824us",
+        "*.NE1.app[0].dscp": "46",
+        "*.gnb1.app[0].startTime": "500ms",
+        "*.gnb1.app[0].stopTime": "1000ms",
+        "*.gnb1.app[0].sendInterval": "260us",
+        "*.upf.dnPpp.ingressTC.capacitySchedule": "[{atMs: 560, bps: 620000}, {atMs: 1060, bps: 3000000}]"
+      },
+      "source_time_ms": 520,
+      "valid_until_ms": 560,
+      "evaluation_window_ms": [
+        520,
+        1020
+      ],
+      "action_hold_ms": 500,
+      "preference_ids": [
+        "deadline_video",
+        "resource_economy"
+      ]
+    }
+  ]
+}
